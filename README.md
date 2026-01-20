@@ -157,6 +157,37 @@ flowchart LR
 
 ---
 
+## Smart contracts (on‑chain settlement)
+
+The on‑chain layer is optional and is designed for **enterprise‑friendly settlement** with a dispute window and explicit fee splits.
+
+### Contract set
+
+- **RoyaltySettlement.sol** — settlement statements with dispute window
+- **VerificationEscrow.sol** — brand deposits + receipt tracking
+- **PaymentDistributor.sol** — fee splits (protocol + gateway + supplier)
+- **MockUSDC.sol** — 6‑decimals test token
+
+### On‑chain flow
+
+```mermaid
+flowchart LR
+  Brand["Brand"] -->|Deposit| Escrow["VerificationEscrow"]
+  Escrow -->|Record receipt| Settlement["RoyaltySettlement"]
+  Settlement -->|Finalize after dispute window| Distributor["PaymentDistributor"]
+  Distributor -->|Fees + Supplier payout| Wallets["Wallets"]
+```
+
+### Foundry quickstart
+
+```bash
+pnpm contracts:build
+pnpm contracts:test
+pnpm contracts:deploy:sepolia
+```
+
+---
+
 ## Scientific/engineering principles
 
 - **Truth vs. Proof**: cryptographic proofs verify statements about committed data, not truth. This system binds claims to evidence and supports attestation + revocation.
@@ -173,6 +204,8 @@ services/             Gateway, DPP builder, metering, identity
 crates/               Rust libraries (commitments, crypto, policy)
 circuits/             Noir predicate circuits
 packages/             Schemas and SDKs
+packages/contracts/   TypeScript client for on‑chain interactions
+contracts/            Foundry contracts + tests + scripts
 ```
 
 ---
