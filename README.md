@@ -1,18 +1,181 @@
-# ZK-DPP Royalty Protocol
+# ZK‑DPP Royalty Protocol
 
 [![CI](https://github.com/hadijannat/zk-dpp-royalty-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/hadijannat/zk-dpp-royalty-protocol/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/hadijannat/zk-dpp-royalty-protocol)](https://github.com/hadijannat/zk-dpp-royalty-protocol/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue)](LICENSE)
 
-A compliance-grade, privacy-preserving toolchain for Digital Product Passports (DPP) that enables selective disclosure via ZK predicates and usage-based data royalties.
+A compliance‑grade, privacy‑preserving toolchain for Digital Product Passports (DPP) that enables **selective disclosure** via ZK predicates and **usage‑based data royalties** without exposing supplier trade secrets.
 
-## What’s in this repo
+---
 
-- **Edge Agent** (Tauri) for local extraction, claim review, commitments, and proof generation
-- **Verification Gateway** for proof verification and receipt issuance
-- **DPP Builder** for access-group views and publishing
-- **Metering & Billing** for usage-based settlement
-- **Predicate Circuits** (Noir) for standardized compliance proofs
+## Why this exists
+
+Digital Product Passports require deep, verifiable supply‑chain data. Suppliers cannot disclose proprietary recipes, upstream relationships, or pricing. This system resolves the conflict by letting suppliers **commit to structured claims locally** and respond to **fixed compliance predicates** using zero‑knowledge proofs or selective disclosure—while brands and regulators can still verify compliance.
+
+---
+
+## System architecture (high level)
+
+```mermaid
+flowchart LR
+  SA["Supplier Edge Agent"] -->|"Proof packages + signed commitments"| VG["Verification Gateway"]
+  SA -->|"Encrypted sync (optional)"| SV["Supplier Vault"]
+  VG --> DB["DPP Builder / Publisher"]
+  VG --> MB["Metering & Billing"]
+  VG --> IA["Identity & Audit"]
+  DB -->|"Access‑group views"| QR["DPP URL / Data Carrier"]
+  IA --> RC["Registry Connector"]
+```
+
+---
+
+## Core components
+
+- **Edge Agent (Tauri)**: local document ingest, extraction, review, evidence hashing, commitments, and ZK proof generation.
+- **Predicate Library (Noir)**: versioned predicate circuits (e.g., recycled content threshold, substances not in list).
+- **Verification Gateway**: verifies proof packages and issues signed verification receipts.
+- **DPP Builder**: composes public/legitimate‑interest/authority views from verified receipts.
+- **Metering & Billing**: usage receipts → aggregation → settlement statements.
+- **Identity & Audit**: issuer attestations, revocation lists, and access‑log integrity.
+- **Registry Connector**: prepares compliance metadata for external registries.
+
+---
+
+## Protocol lifecycle (end‑to‑end)
+
+```mermaid
+sequenceDiagram
+  participant Supplier as Supplier Edge Agent
+  participant Gateway as Verification Gateway
+  participant Brand as Brand DPP Builder
+  participant Metering as Metering/Billing
+
+  Supplier->>Supplier: Ingest evidence, extract claims
+  Supplier->>Supplier: Build commitment root (Merkle)
+  Supplier->>Supplier: Prove predicate locally
+  Supplier->>Gateway: Submit proof package
+  Gateway->>Gateway: Verify proof + bindings
+  Gateway-->>Brand: Signed verification receipt
+  Gateway-->>Metering: Usage event (receipt)
+  Brand->>Brand: Compose access‑group views
+```
+
+---
+
+## Data model (canonical objects)
+
+```mermaid
+classDiagram
+  class Claim {
+    id
+    type
+    value
+    unit
+    productId
+    supplierId
+    evidenceIds[]
+  }
+  class Evidence {
+    id
+    hash
+    issuer
+    timestamp
+    classification
+  }
+  class Commitment {
+    root
+    claimCount
+    predicateLibVersion
+    signatures[]
+  }
+  class ProofPackage {
+    predicateId
+    proof
+    publicInputs
+    context
+  }
+  class VerificationReceipt {
+    receiptId
+    predicateId
+    commitmentRoot
+    requesterId
+    timestamp
+    signature
+  }
+  Claim --> Evidence
+  Commitment --> Claim
+  ProofPackage --> Commitment
+  VerificationReceipt --> ProofPackage
+```
+
+---
+
+## Cryptography & proof design
+
+### Commitment model
+
+- **Leaf hash**: BLAKE3 over canonical claim components.
+- **Merkle tree**: BLAKE3 node hashing (left || right).
+- **Commitment root**: signed by supplier key.
+
+### Predicate proofs
+
+Each proof binds to:
+
+- Commitment root
+- Product binding (SKU/batch/item)
+- Requester binding (brand/authority)
+- Validity window + nonce
+
+This prevents replay and cross‑customer leakage.
+
+---
+
+## Access control model (ABAC/RBAC)
+
+```mermaid
+flowchart LR
+  Req["Requester"] --> Policy["Policy Engine"]
+  Policy -->|"PUBLIC"| V1["Public View"]
+  Policy -->|"LEGIT_INTEREST"| V2["Predicate Results + Selective Disclosure"]
+  Policy -->|"AUTHORITY"| V3["Authority View + Audit"]
+```
+
+---
+
+## Metering & royalties
+
+The system monetizes **verification events**, not QR scans.
+
+```mermaid
+flowchart LR
+  Receipt["Verification Receipt"] --> Ledger["Usage Ledger"]
+  Ledger --> Aggregate["Aggregation"]
+  Aggregate --> Statement["Settlement Statement"]
+  Statement --> Payout["Invoice / Optional On‑chain"]
+```
+
+---
+
+## Scientific/engineering principles
+
+- **Truth vs. Proof**: cryptographic proofs verify statements about committed data, not truth. This system binds claims to evidence and supports attestation + revocation.
+- **Inference resistance**: only a fixed predicate library is supported; arbitrary ad‑hoc queries are rejected.
+- **Separation of duties**: edge agent produces proofs; gateway verifies; builder publishes views; metering is independent.
+
+---
+
+## Repository layout (core)
+
+```
+apps/                 Edge agent and UI apps
+services/             Gateway, DPP builder, metering, identity
+crates/               Rust libraries (commitments, crypto, policy)
+circuits/             Noir predicate circuits
+packages/             Schemas and SDKs
+```
+
+---
 
 ## Quickstart
 
@@ -38,7 +201,6 @@ pnpm rust:build
 ### Noir circuits test
 
 ```bash
-# ensure nargo is on PATH
 pnpm circuits:test
 ```
 
@@ -49,16 +211,18 @@ curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
 noirup
 ```
 
-## Repo structure (high level)
+---
 
-- `apps/` – Edge agent and frontends
-- `services/` – Backend services
-- `crates/` – Rust libraries (commitments, crypto, policy)
-- `circuits/` – Noir predicate circuits
-- `packages/` – Shared schemas and SDKs
+## Security notes
+
+- Local evidence stays on device by default.
+- Proof packages contain only public inputs and proof bytes.
+- Commitments are signed; receipts are signed by the gateway.
+
+See `SECURITY.md` for reporting.
+
+---
 
 ## License
 
-Dual-licensed under **Apache-2.0 OR MIT**.
-
-See `LICENSE`, `LICENSE-APACHE`, and `LICENSE-MIT`.
+Dual‑licensed under **Apache‑2.0 OR MIT**. See `LICENSE`, `LICENSE‑APACHE`, `LICENSE‑MIT`.
