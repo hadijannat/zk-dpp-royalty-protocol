@@ -53,7 +53,14 @@ run_service() {
     local service=$1
     local port=$2
     echo "Starting $service on port $port..."
-    pnpm --filter "@zkdpp/$service" dev &
+    if [ "$service" = "verify-gateway" ]; then
+        ZK_BACKEND="${ZK_BACKEND:-mock}" \
+        ALLOW_MOCK_PROOFS="${ALLOW_MOCK_PROOFS:-true}" \
+        ALLOW_EPHEMERAL_KEYS="${ALLOW_EPHEMERAL_KEYS:-true}" \
+        pnpm --filter "@zkdpp/$service" dev &
+    else
+        pnpm --filter "@zkdpp/$service" dev &
+    fi
 }
 
 # Start services

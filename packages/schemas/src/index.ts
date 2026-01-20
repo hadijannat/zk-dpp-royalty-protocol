@@ -106,6 +106,11 @@ export interface ProofPackage {
   publicInputs: PublicInputs;
   nonce: string;
   generatedAt: number;
+  context?: {
+    supplierId?: string;
+    requesterId?: string;
+    productId?: string;
+  };
   supplierSignature?: string;
   usageTerms?: {
     allowedPurposes?: string[];

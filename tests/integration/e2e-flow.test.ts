@@ -17,16 +17,39 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { createHash, createHmac } from 'crypto';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:3001';
 const DPP_BUILDER_URL = process.env.DPP_BUILDER_URL || 'http://localhost:3002';
 const METERING_URL = process.env.METERING_URL || 'http://localhost:3003';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+
+function base64url(input: string): string {
+  return Buffer.from(input)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+function signJwt(roles: string[]): string {
+  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = base64url(JSON.stringify({ roles, iat: Math.floor(Date.now() / 1000) }));
+  const data = `${header}.${payload}`;
+  const signature = createHmac('sha256', JWT_SECRET)
+    .update(data)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  return `${data}.${signature}`;
+}
 
 describe('E2E Flow: Battery Passport Verification', () => {
   let productId: string;
   let receiptId: string;
   const supplierId = `SUPPLIER-${Date.now()}`;
-  const commitmentRoot = '0x' + 'abc123'.repeat(10).slice(0, 64);
+  const commitmentRoot = 'abc123'.repeat(11).slice(0, 64);
 
   describe('Step 1: Create Product', () => {
     it('creates a new battery product', async () => {
@@ -62,7 +85,7 @@ describe('E2E Flow: Battery Passport Verification', () => {
       const supplierLink = {
         supplierId,
         commitmentRoot,
-        supplierPublicKey: '0x' + 'pubkey'.repeat(10).slice(0, 64),
+        supplierPublicKey: '1'.repeat(64),
       };
 
       const response = await fetch(`${DPP_BUILDER_URL}/products/${productId}/link-supplier`, {
@@ -80,20 +103,32 @@ describe('E2E Flow: Battery Passport Verification', () => {
 
   describe('Step 3: Verify Proof via Gateway', () => {
     it('verifies recycled content proof', async () => {
+      const productBinding = createHash('sha256')
+        .update(`product:${productId}`)
+        .digest('hex');
+      const requesterBinding = createHash('sha256')
+        .update('requester:brand-001')
+        .digest('hex');
+
       const proofPackage = {
         predicateId: {
           name: 'RECYCLED_CONTENT_GTE',
           version: 'V1',
         },
-        proof: 'z'.repeat(128), // Simulated proof data
+        proof: 'a'.repeat(128), // Simulated proof data
         publicInputs: {
           threshold: 20, // Require 20% recycled content
           commitmentRoot,
-          productBinding: productId,
-          requesterBinding: 'brand-001',
+          productBinding,
+          requesterBinding,
         },
         nonce: crypto.randomUUID(),
         generatedAt: Date.now(),
+        context: {
+          supplierId,
+          requesterId: 'brand-001',
+          productId,
+        },
       };
 
       const response = await fetch(`${GATEWAY_URL}/verify`, {
@@ -114,20 +149,32 @@ describe('E2E Flow: Battery Passport Verification', () => {
     });
 
     it('verifies carbon footprint proof', async () => {
+      const productBinding = createHash('sha256')
+        .update(`product:${productId}`)
+        .digest('hex');
+      const requesterBinding = createHash('sha256')
+        .update('requester:brand-001')
+        .digest('hex');
+
       const proofPackage = {
         predicateId: {
           name: 'CARBON_FOOTPRINT_LTE',
           version: 'V1',
         },
-        proof: 'y'.repeat(128),
+        proof: 'b'.repeat(128),
         publicInputs: {
           threshold: 100, // Max 100 kg CO2e
           commitmentRoot,
-          productBinding: productId,
-          requesterBinding: 'brand-001',
+          productBinding,
+          requesterBinding,
         },
         nonce: crypto.randomUUID(),
         generatedAt: Date.now(),
+        context: {
+          supplierId,
+          requesterId: 'brand-001',
+          productId,
+        },
       };
 
       const response = await fetch(`${GATEWAY_URL}/verify`, {
@@ -198,7 +245,10 @@ describe('E2E Flow: Battery Passport Verification', () => {
     });
 
     it('legit interest view shows verified predicates', async () => {
-      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${productId}/view/legit-interest`);
+      const token = signJwt(['LEGIT_INTEREST']);
+      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${productId}/view/legit-interest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       expect(response.status).toBe(200);
 
       const data = await response.json();
@@ -212,7 +262,10 @@ describe('E2E Flow: Battery Passport Verification', () => {
     });
 
     it('authority view shows full audit trail', async () => {
-      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${productId}/view/authority`);
+      const token = signJwt(['AUTHORITY']);
+      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${productId}/view/authority`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       expect(response.status).toBe(200);
 
       const data = await response.json();

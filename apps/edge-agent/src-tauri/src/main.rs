@@ -13,6 +13,7 @@
 mod commands;
 mod ollama;
 mod storage;
+mod zk;
 
 use storage::Database;
 use std::sync::Mutex;

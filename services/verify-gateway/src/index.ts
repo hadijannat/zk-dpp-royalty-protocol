@@ -2,8 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import pino from 'pino';
 import { v4 as uuidv4 } from 'uuid';
-import { EventBus, EVENTS } from '@zkdpp/event-bus';
-import type { VerificationEvent } from '@zkdpp/schemas';
+import { EventBus } from '@zkdpp/event-bus';
+import { execFileSync } from 'child_process';
 import { Verifier } from './services/verifier.js';
 import { nonceStore } from './services/nonce-store.js';
 import { registerVerifyRoutes } from './routes/verify.js';
@@ -27,6 +27,9 @@ function loadConfig(): ServiceConfig {
     signingKeyId: process.env.SIGNING_KEY_ID || 'gateway-key-001',
     signingKeyPrivate: process.env.SIGNING_KEY_PRIVATE || '',
     nonceWindowMs: parseInt(process.env.NONCE_WINDOW_MS || '300000', 10), // 5 minutes
+    zkBackend: (process.env.ZK_BACKEND as 'noir-cli' | 'mock') || 'noir-cli',
+    nargoBin: process.env.NARGO_BIN || 'nargo',
+    noirCircuitsDir: process.env.NOIR_CIRCUITS_DIR,
   };
 }
 
@@ -60,68 +63,41 @@ async function createServer(config: ServiceConfig) {
     logger.warn({ error }, 'Failed to connect to NATS - running without event bus');
   }
 
+  // Verify Noir toolchain availability if configured
+  if (config.zkBackend === 'noir-cli') {
+    try {
+      execFileSync(config.nargoBin, ['--version'], { stdio: 'pipe' });
+    } catch (error) {
+      if (process.env.ALLOW_MOCK_PROOFS === 'true') {
+        logger.warn({ error }, 'Noir CLI not available, falling back to mock verifier');
+        config.zkBackend = 'mock';
+      } else {
+        throw new Error('Noir CLI not available. Set NARGO_BIN or enable ALLOW_MOCK_PROOFS.');
+      }
+    }
+  }
+
   // Initialize verifier
   const gatewayId = `gateway-${uuidv4().slice(0, 8)}`;
   const verifier = new Verifier({
     signingKeyId: config.signingKeyId,
     signingKeyPrivate: config.signingKeyPrivate,
     gatewayId,
+    zkBackend: config.zkBackend,
+    nargoBin: config.nargoBin,
+    noirCircuitsDir: config.noirCircuitsDir,
   });
   await verifier.init();
   logger.info('Verifier initialized');
 
   // Start nonce cleanup
+  nonceStore.setWindowMs(config.nonceWindowMs);
   nonceStore.startCleanup();
 
   // Register routes
   registerHealthRoutes(app, eventBus);
   registerPredicateRoutes(app);
-  registerVerifyRoutes(app, verifier);
-
-  // Hook to publish verification events
-  if (eventBus) {
-    app.addHook('onResponse', async (request, reply) => {
-      // Only publish for successful verifications
-      if (
-        request.url === '/verify' &&
-        request.method === 'POST' &&
-        reply.statusCode === 200
-      ) {
-        try {
-          const body = request.body as {
-            proofPackage?: {
-              predicateId?: { name: string; version: string };
-              publicInputs?: { commitmentRoot?: string };
-            }
-          };
-          if (body?.proofPackage?.predicateId) {
-            const eventId = uuidv4();
-            const event: VerificationEvent = {
-              eventId,
-              eventType: 'proofs.verified',
-              timestamp: new Date().toISOString(),
-              payload: {
-                receiptId: eventId,
-                predicateId: body.proofPackage.predicateId,
-                supplierId: 'unknown', // Would come from request context
-                requesterId: 'unknown', // Would come from request context
-                result: true,
-                commitmentRoot: body.proofPackage.publicInputs?.commitmentRoot,
-              },
-              metadata: {
-                gatewayId,
-              },
-            };
-
-            await eventBus.publish(EVENTS.VERIFICATION.PROOF_VERIFIED, event);
-            logger.debug({ eventId }, 'Published verification event');
-          }
-        } catch (error) {
-          logger.error({ error }, 'Failed to publish verification event');
-        }
-      }
-    });
-  }
+  registerVerifyRoutes(app, verifier, eventBus);
 
   // Graceful shutdown
   const shutdown = async () => {

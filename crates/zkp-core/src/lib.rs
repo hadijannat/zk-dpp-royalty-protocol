@@ -136,7 +136,7 @@ pub fn verify_proof(
     let _vkey_bytes = hex::decode(&vkey.key)?;
 
     // TODO: Integrate with Noir verification library
-    // For now, we validate the structure and return a placeholder result
+    // Fail closed until real verification is wired.
     //
     // In production, this would:
     // 1. Deserialize the Noir proof
@@ -148,15 +148,8 @@ pub fn verify_proof(
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    // Placeholder: In MVP, actual verification will be implemented
-    // when Noir circuits are ready
-    Ok(VerificationResult {
-        valid: true, // Placeholder - will be actual verification result
-        predicate_id: package.predicate_id.clone(),
-        public_inputs: package.public_inputs.clone(),
-        verified_at: now,
-        error: None,
-    })
+    // Until Noir verification is wired, fail closed to avoid false positives.
+    Err(ZkpError::VerificationFailed)
 }
 
 /// Validates the structure of a proof package without full verification.
@@ -292,9 +285,10 @@ mod tests {
         let package = make_test_package();
         let vkey = make_test_vkey();
 
-        let result = verify_proof(&package, &vkey).unwrap();
-        assert!(result.valid);
-        assert_eq!(result.predicate_id, package.predicate_id);
+        assert!(matches!(
+            verify_proof(&package, &vkey),
+            Err(ZkpError::VerificationFailed)
+        ));
     }
 
     #[test]

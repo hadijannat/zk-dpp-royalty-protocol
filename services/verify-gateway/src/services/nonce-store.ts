@@ -14,6 +14,13 @@ export class NonceStore {
   }
 
   /**
+   * Update nonce window duration (ms).
+   */
+  setWindowMs(windowMs: number): void {
+    this.windowMs = windowMs;
+  }
+
+  /**
    * Start periodic cleanup of expired nonces
    */
   startCleanup(intervalMs: number = 60 * 1000): void {

@@ -9,7 +9,7 @@ description = "Merkle tree commitments and claim hashing for ZK-DPP"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-sha2.workspace = true
+blake3.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

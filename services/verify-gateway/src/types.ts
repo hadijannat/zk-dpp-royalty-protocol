@@ -39,6 +39,9 @@ export interface ServiceConfig {
   signingKeyId: string;
   signingKeyPrivate: string;
   nonceWindowMs: number;
+  zkBackend: 'noir-cli' | 'mock';
+  nargoBin: string;
+  noirCircuitsDir?: string;
 }
 
 export interface HealthResponse {

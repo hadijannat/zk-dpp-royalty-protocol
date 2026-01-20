@@ -78,6 +78,15 @@ export class Database {
     return result.rows[0] || null;
   }
 
+  async getProductByBinding(binding: string): Promise<Product | null> {
+    const result = await this.pool.query<Product>(
+      `SELECT * FROM dpp_builder.products
+       WHERE encode(digest('product:' || id::text, 'sha256'), 'hex') = $1`,
+      [binding]
+    );
+    return result.rows[0] || null;
+  }
+
   async listProducts(limit = 100, offset = 0): Promise<Product[]> {
     const result = await this.pool.query<Product>(
       'SELECT * FROM dpp_builder.products ORDER BY created_at DESC LIMIT $1 OFFSET $2',
@@ -211,7 +220,7 @@ export class Database {
     const result = await this.pool.query<VerifiedPredicate>(
       `SELECT * FROM dpp_builder.verified_predicates
        WHERE product_id = $1 AND supplier_id = $2
-       AND (expires_at IS NULL OR expires_at > $2)
+       AND (expires_at IS NULL OR expires_at > $3)
        ORDER BY verified_at DESC`,
       [productId, supplierId, now]
     );

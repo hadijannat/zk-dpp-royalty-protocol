@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { ProofPackage } from '@zkdpp/schemas';
+import type { ProofPackage, VerificationEvent } from '@zkdpp/schemas';
 import { validateProofPackage } from '@zkdpp/schemas';
+import { EventBus, EVENTS } from '@zkdpp/event-bus';
+import { v4 as uuidv4 } from 'uuid';
 import type { Verifier } from '../services/verifier.js';
 import type { VerifyResponse } from '../types.js';
 
@@ -10,7 +12,8 @@ interface VerifyBody {
 
 export function registerVerifyRoutes(
   app: FastifyInstance,
-  verifier: Verifier
+  verifier: Verifier,
+  eventBus?: EventBus | null
 ): void {
   /**
    * POST /verify
@@ -73,6 +76,33 @@ export function registerVerifyRoutes(
           success: false,
           error: result.error,
         };
+      }
+
+      // Publish verification event if event bus available
+      if (eventBus && result.receipt) {
+        const event: VerificationEvent = {
+          eventId: uuidv4(),
+          eventType: 'proofs.verified',
+          timestamp: new Date().toISOString(),
+          payload: {
+            receiptId: result.receipt.id,
+            predicateId: proofPackage.predicateId,
+            supplierId: proofPackage.context?.supplierId || 'unknown',
+            requesterId: proofPackage.context?.requesterId || 'unknown',
+            productBinding: proofPackage.publicInputs.productBinding,
+            result: true,
+            commitmentRoot: proofPackage.publicInputs.commitmentRoot,
+          },
+          metadata: {
+            gatewayId: result.receipt.gatewayId,
+          },
+        };
+
+        try {
+          await eventBus.publish(EVENTS.VERIFICATION.PROOF_VERIFIED, event);
+        } catch (error) {
+          request.log.error({ error }, 'Failed to publish verification event');
+        }
       }
 
       return {

@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as jose from 'jose';
 import type { ProofPackage, VerificationReceipt } from '@zkdpp/schemas';
-import { getPredicateById } from '@zkdpp/predicate-lib';
+import { getPredicateById, type PredicateDefinition } from '@zkdpp/predicate-lib';
 import { nonceStore } from './nonce-store.js';
 import pino from 'pino';
-import crypto from 'crypto';
+import { verifyWithNoirCli } from './noir-cli.js';
 
 const logger = pino({ name: 'verifier' });
 
@@ -12,6 +12,9 @@ export interface VerifierConfig {
   signingKeyId: string;
   signingKeyPrivate: string;
   gatewayId: string;
+  zkBackend: 'noir-cli' | 'mock';
+  nargoBin: string;
+  noirCircuitsDir?: string;
 }
 
 /**
@@ -35,7 +38,7 @@ export class Verifier {
   async init(): Promise<void> {
     try {
       // In production, load from secure key storage
-      // For MVP, we generate a key if not provided
+      // Generate a key only if explicitly allowed
       if (this.config.signingKeyPrivate) {
         const keyData = Buffer.from(this.config.signingKeyPrivate, 'base64');
         this.privateKey = await jose.importPKCS8(
@@ -43,6 +46,11 @@ export class Verifier {
           'EdDSA'
         );
       } else {
+        const allowEphemeral = process.env.ALLOW_EPHEMERAL_KEYS === 'true';
+        if (!allowEphemeral) {
+          throw new Error('SIGNING_KEY_PRIVATE is required unless ALLOW_EPHEMERAL_KEYS=true');
+        }
+
         // Generate a new key for development
         const { privateKey } = await jose.generateKeyPair('EdDSA');
         this.privateKey = privateKey;
@@ -50,9 +58,7 @@ export class Verifier {
       }
     } catch (error) {
       logger.error({ error }, 'Failed to initialize signing key');
-      // Fall back to generated key for development
-      const { privateKey } = await jose.generateKeyPair('EdDSA');
-      this.privateKey = privateKey;
+      throw error;
     }
   }
 
@@ -82,24 +88,25 @@ export class Verifier {
 
       // 3. Check time window
       const now = Date.now();
-      const createdAt = proofPackage.generatedAt;
-      const windowMs = 5 * 60 * 1000; // 5 minutes
+      const createdAt = proofPackage.generatedAt < 1_000_000_000_000
+        ? proofPackage.generatedAt * 1000
+        : proofPackage.generatedAt;
+      const windowMs = this.config.nonceWindowMs;
 
       if (Math.abs(now - createdAt) > windowMs) {
         return { success: false, error: 'Proof package timestamp outside valid window' };
       }
 
       // 4. Check replay (nonce)
-      const nonce = proofPackage.nonce || uuidv4();
+      const nonce = proofPackage.nonce;
       if (!nonceStore.checkAndStore(nonce, predicateKey)) {
         return { success: false, error: 'Nonce already used (replay detected)' };
       }
 
       // 5. Verify the ZK proof
-      // In MVP, we simulate verification. In production, this calls the WASM verifier.
-      const proofValid = await this.verifyZkProof(proofPackage);
-      if (!proofValid) {
-        return { success: false, error: 'ZK proof verification failed' };
+      const proofResult = await this.verifyZkProof(proofPackage, predicate);
+      if (!proofResult.valid) {
+        return { success: false, error: proofResult.error || 'ZK proof verification failed' };
       }
 
       // 6. Create and sign receipt
@@ -148,25 +155,35 @@ export class Verifier {
    * In MVP, this simulates verification by checking proof structure.
    * In production, this would call the zkp-core WASM module.
    */
-  private async verifyZkProof(proofPackage: ProofPackage): Promise<boolean> {
-    // MVP: Simulate verification
-    // Check that proof data is non-empty and properly formatted
-    const proofData = proofPackage.proof;
-
+  private async verifyZkProof(
+    proofPackage: ProofPackage,
+    predicate: PredicateDefinition
+  ): Promise<{ valid: boolean; error?: string }> {
     // Basic validation that proof data exists and has reasonable length
-    if (!proofData || proofData.length < 32) {
+    const proofData = proofPackage.proof;
+    if (!proofData || proofData.length < 32 || proofData.length % 2 !== 0) {
       logger.warn({ proofLength: proofData?.length }, 'Invalid proof data length');
-      return false;
+      return { valid: false, error: 'Invalid proof data length' };
     }
 
-    // In production, this would be:
-    // const vkey = await this.loadVerificationKey(proofPackage.predicateId);
-    // const result = verifyProofWasm(JSON.stringify(proofPackage), JSON.stringify(vkey));
-    // return result.valid;
+    if (this.config.zkBackend === 'mock') {
+      if (process.env.ALLOW_MOCK_PROOFS !== 'true') {
+        return { valid: false, error: 'Mock backend disabled. Set ALLOW_MOCK_PROOFS=true to enable.' };
+      }
+      logger.warn('ZK backend is set to mock - not suitable for production');
+      return { valid: true };
+    }
 
-    // For MVP, accept proofs that have valid structure
-    logger.debug('MVP: Simulated proof verification passed');
-    return true;
+    if (this.config.zkBackend === 'noir-cli') {
+      return verifyWithNoirCli({
+        predicate,
+        proofPackage,
+        nargoBin: this.config.nargoBin,
+        circuitsDir: this.config.noirCircuitsDir,
+      });
+    }
+
+    return { valid: false, error: 'Unsupported ZK backend configuration' };
   }
 
   /**
@@ -187,6 +204,8 @@ export class Verifier {
       commitmentRoot: proofPackage.publicInputs.commitmentRoot,
       productBinding: proofPackage.publicInputs.productBinding,
       requesterBinding: proofPackage.publicInputs.requesterBinding,
+      supplierId: proofPackage.context?.supplierId,
+      requesterId: proofPackage.context?.requesterId,
       nonce: proofPackage.nonce,
       verifiedAt,
       gatewayId: this.config.gatewayId,
@@ -202,21 +221,6 @@ export class Verifier {
     }, 'Receipt created');
 
     return receipt;
-  }
-
-  /**
-   * Hash the proof package for logging/auditing
-   */
-  private hashProofPackage(pkg: ProofPackage): string {
-    const content = JSON.stringify({
-      predicateId: pkg.predicateId,
-      commitmentRoot: pkg.publicInputs.commitmentRoot,
-      publicInputs: pkg.publicInputs,
-      generatedAt: pkg.generatedAt,
-    });
-
-    const hash = crypto.createHash('sha256').update(content).digest('hex');
-    return hash;
   }
 
   /**

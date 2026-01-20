@@ -7,8 +7,31 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { createHmac } from 'crypto';
 
 const DPP_BUILDER_URL = process.env.DPP_BUILDER_URL || 'http://localhost:3002';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+
+function base64url(input: string): string {
+  return Buffer.from(input)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+function signJwt(roles: string[]): string {
+  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = base64url(JSON.stringify({ roles, iat: Math.floor(Date.now() / 1000) }));
+  const data = `${header}.${payload}`;
+  const signature = createHmac('sha256', JWT_SECRET)
+    .update(data)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  return `${data}.${signature}`;
+}
 
 describe('DPP Builder', () => {
   let createdProductId: string | null = null;
@@ -111,7 +134,10 @@ describe('DPP Builder', () => {
         throw new Error('No product created in previous test');
       }
 
-      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${createdProductId}/view/legit-interest`);
+      const token = signJwt(['LEGIT_INTEREST']);
+      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${createdProductId}/view/legit-interest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       expect(response.status).toBe(200);
 
       const data = await response.json();
@@ -126,7 +152,10 @@ describe('DPP Builder', () => {
         throw new Error('No product created in previous test');
       }
 
-      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${createdProductId}/view/authority`);
+      const token = signJwt(['AUTHORITY']);
+      const response = await fetch(`${DPP_BUILDER_URL}/dpp/${createdProductId}/view/authority`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       expect(response.status).toBe(200);
 
       const data = await response.json();
@@ -151,8 +180,8 @@ describe('DPP Builder', () => {
 
       const supplierLink = {
         supplierId: 'SUPPLIER-001',
-        commitmentRoot: '0x' + 'a'.repeat(64),
-        supplierPublicKey: '0x' + 'b'.repeat(64),
+        commitmentRoot: 'a'.repeat(64),
+        supplierPublicKey: 'b'.repeat(64),
       };
 
       const response = await fetch(`${DPP_BUILDER_URL}/products/${createdProductId}/link-supplier`, {

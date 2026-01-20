@@ -3,6 +3,9 @@
 //! Stores evidence, claims, commitments, and keys locally with encryption.
 
 use anyhow::{Context, Result};
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+use aes_gcm::aead::{Aead, rand_core::RngCore};
+use rand::rngs::OsRng;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -70,6 +73,93 @@ pub struct StoredKeypair {
 /// Database connection wrapper
 pub struct Database {
     conn: Connection,
+}
+
+const KEY_PREFIX_ENC: &str = "enc:";
+const KEY_PREFIX_RAW: &str = "raw:";
+const BLOB_PREFIX: &[u8; 4] = b"ENC1";
+
+fn load_master_key() -> Result<Option<[u8; 32]>> {
+    let key = match std::env::var("EDGE_AGENT_MASTER_KEY") {
+        Ok(v) => v,
+        Err(_) => return Ok(None),
+    };
+    let key_bytes = hex::decode(key.trim())
+        .context("EDGE_AGENT_MASTER_KEY must be 64 hex chars")?;
+    if key_bytes.len() != 32 {
+        return Err(anyhow::anyhow!("EDGE_AGENT_MASTER_KEY must be 32 bytes"));
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&key_bytes);
+    Ok(Some(arr))
+}
+
+fn encrypt_bytes(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
+    let cipher = Aes256Gcm::new_from_slice(key).context("Invalid master key")?;
+    let mut nonce_bytes = [0u8; 12];
+    OsRng.fill_bytes(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let mut out = Vec::new();
+    out.extend_from_slice(&nonce_bytes);
+    out.extend_from_slice(&cipher.encrypt(nonce, plaintext).context("Encryption failed")?);
+    Ok(out)
+}
+
+fn decrypt_bytes(key: &[u8; 32], ciphertext: &[u8]) -> Result<Vec<u8>> {
+    if ciphertext.len() < 12 {
+        return Err(anyhow::anyhow!("Ciphertext too short"));
+    }
+    let (nonce_bytes, data) = ciphertext.split_at(12);
+    let cipher = Aes256Gcm::new_from_slice(key).context("Invalid master key")?;
+    let nonce = Nonce::from_slice(nonce_bytes);
+    cipher.decrypt(nonce, data).context("Decryption failed")
+}
+
+pub fn encode_secret_key(secret: &[u8]) -> Result<String> {
+    if let Some(key) = load_master_key()? {
+        let encrypted = encrypt_bytes(&key, secret)?;
+        Ok(format!("{}{}", KEY_PREFIX_ENC, base64::encode(encrypted)))
+    } else if std::env::var("ALLOW_PLAINTEXT_KEYS").as_deref() == Ok("true") {
+        Ok(format!("{}{}", KEY_PREFIX_RAW, hex::encode(secret)))
+    } else {
+        Err(anyhow::anyhow!("EDGE_AGENT_MASTER_KEY is required unless ALLOW_PLAINTEXT_KEYS=true"))
+    }
+}
+
+pub fn decode_secret_key(encoded: &str) -> Result<Vec<u8>> {
+    if let Some(rest) = encoded.strip_prefix(KEY_PREFIX_ENC) {
+        let key = load_master_key()?.ok_or_else(|| anyhow::anyhow!("EDGE_AGENT_MASTER_KEY required to decrypt"))?;
+        let bytes = base64::decode(rest).context("Invalid encrypted key data")?;
+        return decrypt_bytes(&key, &bytes);
+    }
+
+    if let Some(rest) = encoded.strip_prefix(KEY_PREFIX_RAW) {
+        if std::env::var("ALLOW_PLAINTEXT_KEYS").as_deref() != Ok("true") {
+            return Err(anyhow::anyhow!("Plaintext keys disabled"));
+        }
+        return Ok(hex::decode(rest).context("Invalid raw key hex")?);
+    }
+
+    // Legacy hex storage
+    if std::env::var("ALLOW_PLAINTEXT_KEYS").as_deref() == Ok("true") {
+        return Ok(hex::decode(encoded).context("Invalid legacy key hex")?);
+    }
+
+    Err(anyhow::anyhow!("Unrecognized key encoding"))
+}
+
+fn maybe_encrypt_blob(raw: &[u8]) -> Result<Option<Vec<u8>>> {
+    if let Some(key) = load_master_key()? {
+        let encrypted = encrypt_bytes(&key, raw)?;
+        let mut out = Vec::with_capacity(BLOB_PREFIX.len() + encrypted.len());
+        out.extend_from_slice(BLOB_PREFIX);
+        out.extend_from_slice(&encrypted);
+        Ok(Some(out))
+    } else if std::env::var("ALLOW_PLAINTEXT_EVIDENCE").as_deref() == Ok("true") {
+        Ok(Some(raw.to_vec()))
+    } else {
+        Ok(None)
+    }
 }
 
 impl Database {
@@ -170,6 +260,10 @@ impl Database {
     // === Evidence operations ===
 
     pub fn insert_evidence(&self, evidence: &Evidence, raw_content: Option<&[u8]>) -> Result<()> {
+        let stored_content = match raw_content {
+            Some(bytes) => maybe_encrypt_blob(bytes)?,
+            None => None,
+        };
         self.conn.execute(
             r#"
             INSERT INTO evidence (id, evidence_type, original_filename, mime_type,
@@ -188,7 +282,7 @@ impl Database {
                 evidence.issuer_type,
                 evidence.valid_from.map(|d| d.to_rfc3339()),
                 evidence.valid_until.map(|d| d.to_rfc3339()),
-                raw_content,
+                stored_content,
                 evidence.created_at.to_rfc3339()
             ],
         )?;

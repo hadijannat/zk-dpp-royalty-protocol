@@ -22,7 +22,8 @@
     },
     "proof": {
       "type": "string",
-      "description": "The ZK proof bytes (hex-encoded)"
+      "pattern": "^[a-f0-9]+$",
+      "description": "The ZK proof bytes (hex-encoded, lowercase, no 0x prefix)"
     },
     "publicInputs": {
       "type": "object",
@@ -35,17 +36,17 @@
         "commitmentRoot": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$",
-          "description": "Merkle root of the supplier's commitment"
+          "description": "Merkle root of the supplier's commitment (hex, 32 bytes)"
         },
         "productBinding": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$",
-          "description": "Hash binding proof to specific product"
+          "description": "Hash binding proof to specific product (hex, 32 bytes)"
         },
         "requesterBinding": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$",
-          "description": "Hash binding proof to specific requester"
+          "description": "Hash binding proof to specific requester (hex, 32 bytes)"
         },
         "timestamp": {
           "type": "integer",
@@ -64,11 +65,20 @@
     },
     "generatedAt": {
       "type": "integer",
-      "description": "Unix timestamp when proof was generated"
+      "description": "Unix timestamp (milliseconds) when proof was generated"
     },
     "supplierSignature": {
       "type": "string",
       "description": "Optional signature from supplier over the package"
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "supplierId": { "type": "string" },
+        "requesterId": { "type": "string" },
+        "productId": { "type": "string" }
+      },
+      "description": "Optional context identifiers used to validate bindings"
     },
     "usageTerms": {
       "type": "object",

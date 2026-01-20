@@ -1,6 +1,6 @@
 //! Merkle tree implementation for claim commitments.
 //!
-//! Uses SHA-256 for internal node hashing with sorted concatenation
+//! Uses BLAKE3 for internal node hashing with sorted concatenation
 //! to ensure consistent tree structure.
 
 use crate::{hash_bytes, CommitmentError, Result};

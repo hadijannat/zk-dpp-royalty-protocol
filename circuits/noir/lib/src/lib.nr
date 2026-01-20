@@ -1,19 +1,19 @@
 // ZK-DPP Shared Library for Noir Circuits
 // Provides Merkle tree verification and common utilities
 
-use std::hash::sha256;
+use std::hash::blake3;
 
 // Maximum Merkle tree depth supported
 global MAX_DEPTH: u32 = 16;
 
-/// Computes SHA-256 hash of two 32-byte values concatenated
+/// Computes BLAKE3 hash of two 32-byte values concatenated
 pub fn hash_pair(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
     let mut combined: [u8; 64] = [0; 64];
     for i in 0..32 {
         combined[i] = left[i];
         combined[i + 32] = right[i];
     }
-    sha256(combined)
+    blake3(combined)
 }
 
 /// Verifies a Merkle proof for a leaf in a tree
@@ -66,7 +66,7 @@ pub fn field_to_bytes(f: Field) -> [u8; 32] {
     f.to_be_bytes()
 }
 
-/// Computes SHA-256 of a claim value for leaf computation
+/// Computes BLAKE3 of a claim value for leaf computation
 pub fn hash_claim_value(
     claim_type: [u8; 32],  // Padded claim type string hash
     value: u64,            // Numeric value
@@ -80,16 +80,70 @@ pub fn hash_claim_value(
     }
 
     // Encode value as big-endian bytes
-    let value_bytes = (value as Field).to_be_bytes();
+    let value_bytes: [u8; 32] = (value as Field).to_be_bytes::<32>();
     for i in 0..8 {
-        data[32 + i] = value_bytes[24 + i]; // Last 8 bytes
+        data[32 + i] = value_bytes[24 + i];
     }
 
     for i in 0..32 {
         data[40 + i] = unit[i];
     }
 
-    sha256(data)
+    blake3(data)
+}
+
+/// Computes BLAKE3 of a certification validity window
+pub fn hash_cert_window(
+    claim_type: [u8; 32],
+    valid_from: u64,
+    valid_until: u64
+) -> [u8; 32] {
+    let mut data: [u8; 48] = [0; 48];
+
+    for i in 0..32 {
+        data[i] = claim_type[i];
+    }
+
+    let from_bytes: [u8; 32] = (valid_from as Field).to_be_bytes::<32>();
+    let until_bytes: [u8; 32] = (valid_until as Field).to_be_bytes::<32>();
+
+    for i in 0..8 {
+        data[32 + i] = from_bytes[24 + i];
+        data[40 + i] = until_bytes[24 + i];
+    }
+
+    blake3(data)
+}
+
+/// Hash a list of substances with a domain separator
+pub fn hash_substance_list<let MAX: u32>(
+    domain: [u8; 4],
+    claim_type: [u8; 32],
+    substances: [[u8; 32]; MAX],
+    count: u32
+) -> [u8; 32] {
+    let mut seed: [u8; 36] = [0; 36];
+    seed[0] = domain[0];
+    seed[1] = domain[1];
+    seed[2] = domain[2];
+    seed[3] = domain[3];
+    for i in 0..32 {
+        seed[4 + i] = claim_type[i];
+    }
+    let mut current_hash: [u8; 32] = blake3(seed);
+
+    let mut combined: [u8; 64] = [0; 64];
+    for i in 0..MAX {
+        if (i as u32) < count {
+            for j in 0..32 {
+                combined[j] = current_hash[j];
+                combined[32 + j] = substances[i][j];
+            }
+            current_hash = blake3(combined);
+        }
+    }
+
+    current_hash
 }
 
 /// Asserts two byte arrays are equal

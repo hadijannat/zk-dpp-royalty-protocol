@@ -12,11 +12,12 @@
 // Private Inputs:
 // - valid_from: Certificate validity start (Unix seconds)
 // - valid_until: Certificate expiry date (Unix seconds)
-// - claim_hash: SHA-256 hash of the canonicalized claim
+// - claim_type_hash: BLAKE3 of claim type string
+// - claim_hash: BLAKE3 hash of (claim_type_hash || valid_from || valid_until)
 // - merkle_path: Sibling hashes in the Merkle tree
 // - merkle_indices: Path directions (0=left, 1=right)
 
-use zkdpp_lib::verify_merkle_proof;
+use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, hash_cert_window};
 
 // Merkle tree depth
 global TREE_DEPTH: u32 = 8;
@@ -31,6 +32,7 @@ fn main(
     // ===== PRIVATE INPUTS =====
     valid_from: u64,                // Certificate start time
     valid_until: u64,               // Certificate expiry time
+    claim_type_hash: [u8; 32],
     claim_hash: [u8; 32],
     merkle_path: [[u8; 32]; TREE_DEPTH],
     merkle_indices: [u1; TREE_DEPTH],
@@ -45,6 +47,10 @@ fn main(
         tree_depth
     );
     assert(merkle_valid, "Merkle proof verification failed");
+
+    // 1b. Verify claim hash binds claim type and validity window
+    let computed_hash = hash_cert_window(claim_type_hash, valid_from, valid_until);
+    assert_bytes_equal(computed_hash, claim_hash);
 
     // 2. Verify certificate validity window
     // Certificate must have started before check time
@@ -62,13 +68,14 @@ fn test_valid_certificate() {
     // Certificate valid from 2024-01-01 to 2025-01-01
     // Checking at 2024-06-15
     let check_timestamp: u64 = 1718409600; // 2024-06-15
-    let commitment_root: [u8; 32] = [0x12; 32];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let valid_from: u64 = 1704067200;  // 2024-01-01
     let valid_until: u64 = 1735689600; // 2025-01-01
-    let claim_hash: [u8; 32] = commitment_root;
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let claim_hash: [u8; 32] = hash_cert_window(claim_type_hash, valid_from, valid_until);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0;
@@ -80,6 +87,7 @@ fn test_valid_certificate() {
         requester_binding,
         valid_from,
         valid_until,
+        claim_type_hash,
         claim_hash,
         merkle_path,
         merkle_indices,
@@ -92,13 +100,14 @@ fn test_expired_certificate() {
     // Certificate expired on 2024-01-01
     // Checking at 2024-06-15
     let check_timestamp: u64 = 1718409600; // 2024-06-15
-    let commitment_root: [u8; 32] = [0x12; 32];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let valid_from: u64 = 1672531200;  // 2023-01-01
     let valid_until: u64 = 1704067200; // 2024-01-01 (already passed)
-    let claim_hash: [u8; 32] = commitment_root;
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let claim_hash: [u8; 32] = hash_cert_window(claim_type_hash, valid_from, valid_until);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0;
@@ -110,6 +119,7 @@ fn test_expired_certificate() {
         requester_binding,
         valid_from,
         valid_until,
+        claim_type_hash,
         claim_hash,
         merkle_path,
         merkle_indices,
@@ -122,13 +132,14 @@ fn test_not_yet_valid() {
     // Certificate starts 2025-01-01
     // Checking at 2024-06-15
     let check_timestamp: u64 = 1718409600; // 2024-06-15
-    let commitment_root: [u8; 32] = [0x12; 32];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let valid_from: u64 = 1735689600;  // 2025-01-01 (future)
     let valid_until: u64 = 1767225600; // 2026-01-01
-    let claim_hash: [u8; 32] = commitment_root;
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let claim_hash: [u8; 32] = hash_cert_window(claim_type_hash, valid_from, valid_until);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0;
@@ -140,6 +151,7 @@ fn test_not_yet_valid() {
         requester_binding,
         valid_from,
         valid_until,
+        claim_type_hash,
         claim_hash,
         merkle_path,
         merkle_indices,
@@ -152,12 +164,13 @@ fn test_just_before_expiry() {
     // Check exactly 1 second before expiry
     let valid_until: u64 = 1735689600; // 2025-01-01
     let check_timestamp: u64 = valid_until - 1;
-    let commitment_root: [u8; 32] = [0x12; 32];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let valid_from: u64 = 1704067200;
-    let claim_hash: [u8; 32] = commitment_root;
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let claim_hash: [u8; 32] = hash_cert_window(claim_type_hash, valid_from, valid_until);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0;
@@ -169,6 +182,7 @@ fn test_just_before_expiry() {
         requester_binding,
         valid_from,
         valid_until,
+        claim_type_hash,
         claim_hash,
         merkle_path,
         merkle_indices,

@@ -83,6 +83,9 @@ export class ViewComposer {
       const existing = predicateResults.get(vp.predicate_id);
       if (!existing || new Date(vp.verified_at) > new Date(existing.verifiedAt)) {
         const predicate = getPredicateById(vp.predicate_id);
+        if (!predicate?.accessGroups.includes('LEGIT_INTEREST')) {
+          continue;
+        }
         predicateResults.set(vp.predicate_id, {
           predicateId: vp.predicate_id,
           predicateName: predicate?.name || vp.predicate_id,

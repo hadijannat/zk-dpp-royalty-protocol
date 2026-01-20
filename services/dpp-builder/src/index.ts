@@ -1,8 +1,10 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyJwt from '@fastify/jwt';
 import pino from 'pino';
 import { EventBus, EVENTS } from '@zkdpp/event-bus';
 import type { VerificationEvent } from '@zkdpp/schemas';
+import { canonicalId } from '@zkdpp/predicate-lib';
 import { Database } from './db/index.js';
 import { ViewComposer } from './services/view-composer.js';
 import { registerProductRoutes } from './routes/products.js';
@@ -42,6 +44,11 @@ async function createServer(config: ServiceConfig) {
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
   });
 
+  // Register JWT auth
+  await app.register(fastifyJwt, {
+    secret: config.jwtSecret,
+  });
+
   // Initialize database
   const db = new Database(config.databaseUrl);
   await db.connect();
@@ -70,8 +77,23 @@ async function createServer(config: ServiceConfig) {
           predicateId: `${event.payload.predicateId.name}@${event.payload.predicateId.version}`,
         }, 'Received verification event');
 
-        // In production, this would link the verification to a product
-        // For now, just log it
+        if (!event.payload.productBinding) {
+          logger.warn({ eventId: event.eventId }, 'Verification event missing product binding');
+          return;
+        }
+
+        const product = await db.getProductByBinding(event.payload.productBinding);
+        if (!product) {
+          logger.warn({ eventId: event.eventId }, 'No product matched product binding');
+          return;
+        }
+
+        await db.recordVerification(product.id, {
+          predicateId: canonicalId(event.payload.predicateId),
+          receiptId: event.payload.receiptId,
+          result: event.payload.result,
+          supplierId: event.payload.supplierId,
+        });
       },
       { durable: 'dpp-builder-consumer' }
     );

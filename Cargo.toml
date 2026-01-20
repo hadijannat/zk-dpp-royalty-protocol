@@ -14,7 +14,7 @@ repository = "https://github.com/zk-dpp/royalty-protocol"
 
 [workspace.dependencies]
 # Crypto
-sha2 = "0.10"
+blake3 = "1.5"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 rand = "0.8"
 

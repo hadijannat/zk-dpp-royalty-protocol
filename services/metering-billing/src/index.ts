@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import pino from 'pino';
 import { EventBus, EVENTS } from '@zkdpp/event-bus';
 import type { VerificationEvent } from '@zkdpp/schemas';
+import { canonicalId } from '@zkdpp/predicate-lib';
 import { Database } from './db/index.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerSettlementRoutes } from './routes/settlements.js';
@@ -73,7 +74,7 @@ async function createServer(config: ServiceConfig) {
             eventId: event.eventId,
             supplierId,
             brandId: event.payload.requesterId,
-            predicateId: `${event.payload.predicateId.name}@${event.payload.predicateId.version}`,
+            predicateId: canonicalId(event.payload.predicateId),
             receiptId: event.payload.receiptId,
             verifiedAt: event.timestamp,
           });

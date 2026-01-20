@@ -11,11 +11,13 @@
 //
 // Private Inputs:
 // - actual_value: The real recycled content percentage
-// - claim_hash: SHA-256 hash of the canonicalized claim
+// - claim_type_hash: BLAKE3 of claim type string
+// - unit_hash: BLAKE3 of unit string
+// - claim_hash: BLAKE3 hash of (claim_type_hash || value || unit_hash)
 // - merkle_path: Sibling hashes in the Merkle tree
 // - merkle_indices: Path directions (0=left, 1=right)
 
-use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal};
+use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, hash_claim_value};
 
 // Merkle tree depth (supports up to 2^8 = 256 claims per commitment)
 global TREE_DEPTH: u32 = 8;
@@ -29,6 +31,8 @@ fn main(
 
     // ===== PRIVATE INPUTS =====
     actual_value: u32,
+    claim_type_hash: [u8; 32],
+    unit_hash: [u8; 32],
     claim_hash: [u8; 32],
     merkle_path: [[u8; 32]; TREE_DEPTH],
     merkle_indices: [u1; TREE_DEPTH],
@@ -44,6 +48,10 @@ fn main(
         tree_depth
     );
     assert(merkle_valid, "Merkle proof verification failed");
+
+    // 1b. Verify claim hash binds claim type, value, and unit
+    let computed_hash = hash_claim_value(claim_type_hash, actual_value as u64, unit_hash);
+    assert_bytes_equal(computed_hash, claim_hash);
 
     // 2. Verify the predicate: actual_value >= threshold
     // This proves compliance without revealing actual_value
@@ -66,17 +74,14 @@ fn main(
 #[test]
 fn test_valid_proof() {
     let threshold: u32 = 20;
-    let commitment_root: [u8; 32] = [
-        0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-        0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-        0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-        0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0
-    ];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let actual_value: u32 = 25;
-    let claim_hash: [u8; 32] = commitment_root; // For single-leaf tree, leaf = root
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let unit_hash: [u8; 32] = [0x20; 32];
+    let claim_hash: [u8; 32] = hash_claim_value(claim_type_hash, actual_value as u64, unit_hash);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0; // Single leaf = depth 0
@@ -87,6 +92,8 @@ fn test_valid_proof() {
         product_binding,
         requester_binding,
         actual_value,
+        claim_type_hash,
+        unit_hash,
         claim_hash,
         merkle_path,
         merkle_indices,
@@ -97,12 +104,14 @@ fn test_valid_proof() {
 #[test(should_fail_with = "Recycled content below threshold")]
 fn test_invalid_below_threshold() {
     let threshold: u32 = 20;
-    let commitment_root: [u8; 32] = [0x12; 32];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let actual_value: u32 = 15; // Below threshold!
-    let claim_hash: [u8; 32] = commitment_root;
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let unit_hash: [u8; 32] = [0x20; 32];
+    let claim_hash: [u8; 32] = hash_claim_value(claim_type_hash, actual_value as u64, unit_hash);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0;
@@ -113,6 +122,8 @@ fn test_invalid_below_threshold() {
         product_binding,
         requester_binding,
         actual_value,
+        claim_type_hash,
+        unit_hash,
         claim_hash,
         merkle_path,
         merkle_indices,
@@ -123,12 +134,14 @@ fn test_invalid_below_threshold() {
 #[test(should_fail_with = "Value exceeds 100%")]
 fn test_invalid_over_100() {
     let threshold: u32 = 20;
-    let commitment_root: [u8; 32] = [0x12; 32];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let actual_value: u32 = 150; // Invalid percentage!
-    let claim_hash: [u8; 32] = commitment_root;
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let unit_hash: [u8; 32] = [0x20; 32];
+    let claim_hash: [u8; 32] = hash_claim_value(claim_type_hash, actual_value as u64, unit_hash);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0;
@@ -139,6 +152,8 @@ fn test_invalid_over_100() {
         product_binding,
         requester_binding,
         actual_value,
+        claim_type_hash,
+        unit_hash,
         claim_hash,
         merkle_path,
         merkle_indices,
@@ -150,12 +165,14 @@ fn test_invalid_over_100() {
 fn test_exact_threshold() {
     // actual_value == threshold should pass
     let threshold: u32 = 25;
-    let commitment_root: [u8; 32] = [0x12; 32];
     let product_binding: [u8; 32] = [1; 32];
     let requester_binding: [u8; 32] = [2; 32];
 
     let actual_value: u32 = 25; // Exactly at threshold
-    let claim_hash: [u8; 32] = commitment_root;
+    let claim_type_hash: [u8; 32] = [0x10; 32];
+    let unit_hash: [u8; 32] = [0x20; 32];
+    let claim_hash: [u8; 32] = hash_claim_value(claim_type_hash, actual_value as u64, unit_hash);
+    let commitment_root: [u8; 32] = claim_hash;
     let merkle_path: [[u8; 32]; TREE_DEPTH] = [[0; 32]; TREE_DEPTH];
     let merkle_indices: [u1; TREE_DEPTH] = [0; TREE_DEPTH];
     let tree_depth: u32 = 0;
@@ -166,6 +183,8 @@ fn test_exact_threshold() {
         product_binding,
         requester_binding,
         actual_value,
+        claim_type_hash,
+        unit_hash,
         claim_hash,
         merkle_path,
         merkle_indices,

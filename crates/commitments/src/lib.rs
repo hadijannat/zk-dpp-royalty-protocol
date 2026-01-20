@@ -4,7 +4,7 @@
 //! for the zero-knowledge data passport protocol.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use blake3::Hasher;
 use thiserror::Error;
 
 pub mod merkle;
@@ -72,21 +72,21 @@ fn canonicalize_value(value: &serde_json::Value) -> serde_json::Value {
     }
 }
 
-/// Hashes a claim using SHA-256 after canonicalization.
+/// Hashes a claim using BLAKE3 after canonicalization.
 ///
 /// This is the leaf-level hash used in the Merkle tree.
 pub fn hash_claim<T: Serialize>(claim: &T) -> Result<[u8; 32]> {
     let canonical = canonicalize(claim)?;
-    let mut hasher = Sha256::new();
+    let mut hasher = Hasher::new();
     hasher.update(canonical.as_bytes());
-    Ok(hasher.finalize().into())
+    Ok(*hasher.finalize().as_bytes())
 }
 
-/// Hashes raw bytes using SHA-256.
+/// Hashes raw bytes using BLAKE3.
 pub fn hash_bytes(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
+    let mut hasher = Hasher::new();
     hasher.update(data);
-    hasher.finalize().into()
+    *hasher.finalize().as_bytes()
 }
 
 /// Converts a 32-byte array to a hex string.

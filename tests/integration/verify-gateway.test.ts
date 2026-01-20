@@ -105,15 +105,20 @@ describe('Verify Gateway', () => {
           name: 'RECYCLED_CONTENT_GTE',
           version: 'V1',
         },
-        proof: 'a'.repeat(64), // Mock proof data (64 chars)
+        proof: 'a'.repeat(64), // Mock proof data (hex)
         publicInputs: {
           threshold: 20,
-          commitmentRoot: '0x' + 'a'.repeat(64),
-          productBinding: '0x' + 'b'.repeat(64),
-          requesterBinding: '0x' + 'c'.repeat(64),
+          commitmentRoot: 'a'.repeat(64),
+          productBinding: 'b'.repeat(64),
+          requesterBinding: 'c'.repeat(64),
         },
         nonce: crypto.randomUUID(),
         generatedAt: Date.now(),
+        context: {
+          supplierId: 'SUPPLIER-TEST',
+          requesterId: 'BRAND-TEST',
+          productId: 'PRODUCT-TEST',
+        },
       };
 
       const response = await fetch(`${GATEWAY_URL}/verify`, {
