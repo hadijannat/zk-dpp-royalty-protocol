@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-config
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+data:
+  # NATS Configuration
+  NATS_URL: {{ .Values.config.natsUrl | quote }}
+
+  # Keycloak Configuration
+  KEYCLOAK_URL: {{ .Values.config.keycloak.url | quote }}
+  KEYCLOAK_REALM: {{ .Values.config.keycloak.realm | quote }}
+  KEYCLOAK_CLIENT_ID: {{ .Values.config.keycloak.clientId | quote }}
+  KEYCLOAK_ENABLED: {{ .Values.config.keycloak.enabled | quote }}
+
+  # Service Ports
+  VERIFY_GATEWAY_PORT: "3001"
+  DPP_BUILDER_PORT: "3002"
+  METERING_BILLING_PORT: "3003"
+
+  # Environment
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+
+  {{- if .Values.config.blockchain.enabled }}
+  # Blockchain Configuration
+  BLOCKCHAIN_ENABLED: "true"
+  BLOCKCHAIN_RPC_URL: {{ .Values.config.blockchain.rpcUrl | quote }}
+  BLOCKCHAIN_CHAIN_ID: {{ .Values.config.blockchain.chainId | quote }}
+  CONTRACT_SETTLEMENT_ADDRESS: {{ .Values.config.blockchain.contracts.settlement | quote }}
+  CONTRACT_ESCROW_ADDRESS: {{ .Values.config.blockchain.contracts.escrow | quote }}
+  CONTRACT_DISTRIBUTOR_ADDRESS: {{ .Values.config.blockchain.contracts.distributor | quote }}
+  CONTRACT_USDC_ADDRESS: {{ .Values.config.blockchain.contracts.usdc | quote }}
+  {{- end }}

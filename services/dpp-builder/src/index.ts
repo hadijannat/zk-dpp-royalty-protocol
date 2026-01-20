@@ -1,20 +1,32 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import fastifyJwt from '@fastify/jwt';
-import pino from 'pino';
+import helmet from '@fastify/helmet';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { EventBus, EVENTS } from '@zkdpp/event-bus';
 import type { VerificationEvent } from '@zkdpp/schemas';
 import { canonicalId } from '@zkdpp/predicate-lib';
+import {
+  createLogger,
+  createOptionalAuthPreHandler,
+  getKeycloakConfig,
+  registerRateLimit,
+  initMetrics,
+  getMetrics,
+  getContentType,
+  generateCorrelationId,
+} from '@zkdpp/shared';
 import { Database } from './db/index.js';
 import { ViewComposer } from './services/view-composer.js';
 import { registerProductRoutes } from './routes/products.js';
 import { registerDPPRoutes } from './routes/dpp.js';
 import type { ServiceConfig } from './types.js';
 
-const logger = pino({
-  name: 'dpp-builder',
-  level: process.env.LOG_LEVEL || 'info',
-});
+const SERVICE_NAME = 'dpp-builder';
+const logger = createLogger({ name: SERVICE_NAME });
+
+// Initialize metrics
+initMetrics(SERVICE_NAME);
 
 /**
  * Load configuration from environment variables
@@ -25,7 +37,6 @@ function loadConfig(): ServiceConfig {
     host: process.env.HOST || '0.0.0.0',
     natsUrl: process.env.NATS_URL || 'nats://localhost:4222',
     databaseUrl: process.env.DATABASE_URL || 'postgresql://zkdpp:zkdpp_dev_password@localhost:5433/zkdpp',
-    jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
   };
 }
 
@@ -38,15 +49,81 @@ async function createServer(config: ServiceConfig) {
     requestIdHeader: 'x-request-id',
   });
 
+  // Security: Register Helmet for security headers
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  });
+
   // Register CORS
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN || '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
   });
 
-  // Register JWT auth
-  await app.register(fastifyJwt, {
-    secret: config.jwtSecret,
+  // Register Swagger documentation
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'ZK-DPP Builder API',
+        description: 'Product management and Digital Product Passport composition service',
+        version: '0.1.0',
+      },
+      servers: [{ url: `http://${config.host}:${config.port}` }],
+      tags: [
+        { name: 'Health', description: 'Service health endpoints' },
+        { name: 'Products', description: 'Product management' },
+        { name: 'DPP Views', description: 'Digital Product Passport composition' },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+        },
+      },
+    },
+  });
+
+  await app.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: true,
+    },
+  });
+
+  // Register rate limiting
+  await registerRateLimit(app, {
+    max: 500,
+    timeWindow: 60000,
+  });
+
+  // Add correlation ID to all requests
+  app.addHook('onRequest', async (request, _reply) => {
+    const correlationId =
+      (request.headers['x-correlation-id'] as string) || generateCorrelationId();
+    request.headers['x-correlation-id'] = correlationId;
+  });
+
+  // Optional auth for DPP views (some views don't require auth)
+  const authConfig = getKeycloakConfig();
+  const optionalAuth = createOptionalAuthPreHandler(authConfig);
+  app.addHook('preHandler', optionalAuth);
+
+  // Metrics endpoint
+  app.get('/metrics', async (_request, reply) => {
+    reply.header('Content-Type', getContentType());
+    return getMetrics();
   });
 
   // Initialize database
@@ -160,7 +237,6 @@ async function main() {
   logger.info({
     config: {
       ...config,
-      jwtSecret: '[REDACTED]',
       databaseUrl: config.databaseUrl.replace(/:[^:@]+@/, ':****@'),
     },
   }, 'Starting dpp-builder');

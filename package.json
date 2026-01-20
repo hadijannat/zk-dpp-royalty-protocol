@@ -22,10 +22,15 @@
     "rust:fmt": "cargo fmt --all",
     "rust:clippy": "cargo clippy --workspace -- -D warnings",
     "circuits:test": "cd circuits/noir && find predicates -name 'Nargo.toml' -execdir nargo test \\;",
-    "circuits:compile": "cd circuits/noir && find predicates -name 'Nargo.toml' -execdir nargo compile \\;"
+    "circuits:compile": "cd circuits/noir && find predicates -name 'Nargo.toml' -execdir nargo compile \\;",
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test -vvv",
+    "contracts:deploy:sepolia": "cd contracts && forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast --verify",
+    "contracts:copy-abis": "cd packages/contracts && node scripts/copy-abis.js"
   },
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "pino-pretty": "^11.3.0"
   },
   "engines": {
     "node": ">=20.0.0",

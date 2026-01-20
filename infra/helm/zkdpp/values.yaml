@@ -1,0 +1,264 @@
+# Default values for zkdpp
+# This is a YAML-formatted file.
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Verify Gateway Service
+verifyGateway:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: zkdpp-verify-gateway
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  env:
+    PORT: "3001"
+    NODE_ENV: "production"
+    LOG_LEVEL: "info"
+
+  # Additional env vars from secrets
+  envFrom: []
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+# DPP Builder Service
+dppBuilder:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: zkdpp-dpp-builder
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3002
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  env:
+    PORT: "3002"
+    NODE_ENV: "production"
+    LOG_LEVEL: "info"
+
+  envFrom: []
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+# Metering & Billing Service
+meteringBilling:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: zkdpp-metering-billing
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3003
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  env:
+    PORT: "3003"
+    NODE_ENV: "production"
+    LOG_LEVEL: "info"
+
+  envFrom: []
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+# Shared configuration
+config:
+  # NATS connection
+  natsUrl: "nats://zkdpp-nats:4222"
+
+  # Database connection (override with secret)
+  databaseUrl: ""
+
+  # Keycloak configuration
+  keycloak:
+    url: "http://zkdpp-keycloak:80"
+    realm: "zkdpp"
+    clientId: "zkdpp-api"
+    enabled: true
+
+  # Blockchain configuration (optional)
+  blockchain:
+    enabled: false
+    rpcUrl: ""
+    chainId: 84532
+    contracts:
+      settlement: ""
+      escrow: ""
+      distributor: ""
+      usdc: ""
+
+# Secrets configuration
+secrets:
+  # Name of existing secret with database credentials
+  databaseSecret: ""
+  databaseSecretKey: "DATABASE_URL"
+
+  # Name of existing secret with gateway signing key
+  gatewaySigningSecret: ""
+  gatewaySigningSecretKey: "SIGNING_KEY_PRIVATE"
+
+  # Name of existing secret with blockchain credentials
+  blockchainSecret: ""
+  blockchainPrivateKeyKey: "BLOCKCHAIN_PRIVATE_KEY"
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.zkdpp.local
+      paths:
+        - path: /verify
+          pathType: Prefix
+          backend:
+            service: verify-gateway
+        - path: /predicates
+          pathType: Prefix
+          backend:
+            service: verify-gateway
+        - path: /products
+          pathType: Prefix
+          backend:
+            service: dpp-builder
+        - path: /dpp
+          pathType: Prefix
+          backend:
+            service: dpp-builder
+        - path: /usage
+          pathType: Prefix
+          backend:
+            service: metering-billing
+        - path: /settlements
+          pathType: Prefix
+          backend:
+            service: metering-billing
+        - path: /supplier-wallets
+          pathType: Prefix
+          backend:
+            service: metering-billing
+  tls: []
+    # - secretName: zkdpp-tls
+    #   hosts:
+    #     - api.zkdpp.local
+
+# ServiceAccount
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Network policies
+networkPolicy:
+  enabled: false
+
+# Pod disruption budgets
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Service monitors for Prometheus
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  path: /metrics
+
+# Dependencies (set to false if using external services)
+postgresql:
+  enabled: true
+  auth:
+    database: zkdpp
+    username: zkdpp
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+nats:
+  enabled: true
+  nats:
+    jetstream:
+      enabled: true
+      memStorage:
+        size: 256Mi
+      fileStorage:
+        size: 1Gi
+
+keycloak:
+  enabled: false  # Usually managed separately

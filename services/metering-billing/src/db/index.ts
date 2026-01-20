@@ -9,6 +9,9 @@ import type {
   SettlementBreakdown,
   RecordUsageRequest,
   GenerateStatementRequest,
+  SettlementStatementWithBlockchain,
+  BlockchainStatus,
+  SupplierWallet,
 } from '../types.js';
 
 const logger = pino({ name: 'metering-db' });
@@ -256,6 +259,108 @@ export class Database {
     }
 
     return statement;
+  }
+
+  // Blockchain-related methods
+
+  async getStatementWithBlockchain(id: string): Promise<SettlementStatementWithBlockchain | null> {
+    const result = await this.pool.query<SettlementStatementWithBlockchain>(
+      `SELECT *,
+        COALESCE(blockchain_status, 'NOT_SUBMITTED') as blockchain_status
+       FROM metering.settlement_statements
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) return null;
+
+    const statement = result.rows[0];
+    if (typeof statement.breakdown === 'string') {
+      statement.breakdown = JSON.parse(statement.breakdown);
+    }
+
+    return statement;
+  }
+
+  async updateBlockchainStatus(
+    id: string,
+    status: BlockchainStatus,
+    supplierWallet?: string
+  ): Promise<void> {
+    const updates = ['blockchain_status = $2'];
+    const params: unknown[] = [id, status];
+
+    if (supplierWallet) {
+      params.push(supplierWallet);
+      updates.push(`supplier_wallet = $${params.length}`);
+    }
+
+    await this.pool.query(
+      `UPDATE metering.settlement_statements
+       SET ${updates.join(', ')}
+       WHERE id = $1`,
+      params
+    );
+  }
+
+  async updateBlockchainSubmission(
+    id: string,
+    data: {
+      txHash: string;
+      blockNumber: number;
+      status: BlockchainStatus;
+    }
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE metering.settlement_statements
+       SET blockchain_status = $2,
+           tx_hash = $3,
+           block_number = $4,
+           chain_submitted_at = $5
+       WHERE id = $1`,
+      [id, data.status, data.txHash, data.blockNumber, new Date().toISOString()]
+    );
+  }
+
+  async updateBlockchainFinalization(
+    id: string,
+    data: {
+      txHash: string;
+      blockNumber: number;
+    }
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE metering.settlement_statements
+       SET blockchain_status = 'FINALIZED',
+           chain_finalized_at = $2,
+           status = 'PAID'
+       WHERE id = $1`,
+      [id, new Date().toISOString()]
+    );
+  }
+
+  async registerSupplierWallet(
+    supplierId: string,
+    walletAddress: string
+  ): Promise<SupplierWallet> {
+    const result = await this.pool.query<SupplierWallet>(
+      `INSERT INTO metering.supplier_wallets (supplier_id, wallet_address, created_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (supplier_id) DO UPDATE SET wallet_address = $2
+       RETURNING *`,
+      [supplierId, walletAddress.toLowerCase(), new Date().toISOString()]
+    );
+
+    return result.rows[0];
+  }
+
+  async getSupplierWallet(supplierId: string): Promise<SupplierWallet | null> {
+    const result = await this.pool.query<SupplierWallet>(
+      'SELECT * FROM metering.supplier_wallets WHERE supplier_id = $1',
+      [supplierId]
+    );
+
+    return result.rows[0] || null;
   }
 
   // Health check

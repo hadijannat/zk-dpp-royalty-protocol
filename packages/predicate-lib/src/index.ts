@@ -8,7 +8,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export type AccessGroup = 'PUBLIC' | 'LEGIT_INTEREST' | 'AUTHORITY';
 
 // Comparison operators supported by predicates
-export type ComparisonType = 'gte' | 'lte' | 'eq' | 'timestamp_before_expiry' | 'set_non_membership';
+export type ComparisonType =
+  | 'gte'
+  | 'lte'
+  | 'eq'
+  | 'range'
+  | 'timestamp_before_expiry'
+  | 'set_membership'
+  | 'set_non_membership'
+  | 'lifecycle_aggregate';
 
 // Pricing configuration for a predicate
 export interface PredicatePricing {
@@ -126,10 +134,20 @@ export function getVerificationPrice(id: string | PredicateId): PredicatePricing
 
 // Export all predicate IDs as constants
 export const PREDICATES = {
+  // Original MVP predicates
   RECYCLED_CONTENT_GTE_V1: 'RECYCLED_CONTENT_GTE_V1',
   CARBON_FOOTPRINT_LTE_V1: 'CARBON_FOOTPRINT_LTE_V1',
   CERT_VALID_V1: 'CERT_VALID_V1',
   SUBSTANCE_NOT_IN_LIST_V1: 'SUBSTANCE_NOT_IN_LIST_V1',
+  // EU Battery Passport predicates (Phase 8)
+  BATTERY_CAPACITY_GTE_V1: 'BATTERY_CAPACITY_GTE_V1',
+  BATTERY_CHEMISTRY_IN_SET_V1: 'BATTERY_CHEMISTRY_IN_SET_V1',
+  COBALT_ORIGIN_NOT_IN_V1: 'COBALT_ORIGIN_NOT_IN_V1',
+  DUE_DILIGENCE_VALID_V1: 'DUE_DILIGENCE_VALID_V1',
+  ENERGY_DENSITY_RANGE_V1: 'ENERGY_DENSITY_RANGE_V1',
+  STATE_OF_HEALTH_GTE_V1: 'STATE_OF_HEALTH_GTE_V1',
+  RECYCLING_EFFICIENCY_GTE_V1: 'RECYCLING_EFFICIENCY_GTE_V1',
+  CARBON_FOOTPRINT_LIFECYCLE_V1: 'CARBON_FOOTPRINT_LIFECYCLE_V1',
 } as const;
 
 // Aliases for backward compatibility
@@ -138,3 +156,6 @@ export const getAllPredicates = (): (PredicateDefinition & { id: string })[] => 
   const registry = getRegistry();
   return Object.entries(registry).map(([id, def]) => ({ ...def, id }));
 };
+
+// Export generator for creating new predicates
+export * from './generator.js';

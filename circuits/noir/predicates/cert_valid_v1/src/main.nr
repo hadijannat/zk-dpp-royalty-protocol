@@ -17,7 +17,7 @@
 // - merkle_path: Sibling hashes in the Merkle tree
 // - merkle_indices: Path directions (0=left, 1=right)
 
-use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, hash_cert_window};
+use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, hash_cert_window, bind_context};
 
 // Merkle tree depth
 global TREE_DEPTH: u32 = 8;
@@ -51,6 +51,9 @@ fn main(
     // 1b. Verify claim hash binds claim type and validity window
     let computed_hash = hash_cert_window(claim_type_hash, valid_from, valid_until);
     assert_bytes_equal(computed_hash, claim_hash);
+
+    // 1c. Bind proof context to product and requester
+    bind_context(product_binding, requester_binding);
 
     // 2. Verify certificate validity window
     // Certificate must have started before check time

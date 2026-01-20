@@ -18,10 +18,16 @@
         "carbon_footprint",
         "certification",
         "substance_content",
-        "origin",
-        "manufacturing_date",
         "battery_capacity",
-        "battery_chemistry"
+        "battery_chemistry",
+        "cobalt_origin_country",
+        "due_diligence_cert",
+        "energy_density",
+        "state_of_health",
+        "recycling_efficiency",
+        "carbon_footprint_lifecycle",
+        "origin",
+        "manufacturing_date"
       ],
       "description": "The type of claim being made"
     },

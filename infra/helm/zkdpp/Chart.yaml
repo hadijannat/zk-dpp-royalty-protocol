@@ -1,0 +1,36 @@
+apiVersion: v2
+name: zkdpp
+description: ZK-DPP Royalty Protocol - Privacy-preserving compliance verification for Digital Product Passports
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - zkp
+  - zero-knowledge
+  - digital-product-passport
+  - compliance
+  - supply-chain
+  - blockchain
+
+home: https://github.com/hadijannat/zk-dpp-royalty-protocol
+sources:
+  - https://github.com/hadijannat/zk-dpp-royalty-protocol
+
+maintainers:
+  - name: ZK-DPP Team
+    email: team@zkdpp.io
+
+dependencies:
+  - name: postgresql
+    version: "14.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: nats
+    version: "1.x.x"
+    repository: https://nats-io.github.io/k8s/helm/charts/
+    condition: nats.enabled
+  - name: keycloak
+    version: "18.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: keycloak.enabled

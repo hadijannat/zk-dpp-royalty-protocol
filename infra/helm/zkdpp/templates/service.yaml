@@ -1,0 +1,59 @@
+{{- if .Values.verifyGateway.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-verify-gateway
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: verify-gateway
+spec:
+  type: {{ .Values.verifyGateway.service.type }}
+  ports:
+    - port: {{ .Values.verifyGateway.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "zkdpp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: verify-gateway
+{{- end }}
+---
+{{- if .Values.dppBuilder.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-dpp-builder
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dpp-builder
+spec:
+  type: {{ .Values.dppBuilder.service.type }}
+  ports:
+    - port: {{ .Values.dppBuilder.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "zkdpp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: dpp-builder
+{{- end }}
+---
+{{- if .Values.meteringBilling.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-metering-billing
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metering-billing
+spec:
+  type: {{ .Values.meteringBilling.service.type }}
+  ports:
+    - port: {{ .Values.meteringBilling.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "zkdpp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: metering-billing
+{{- end }}

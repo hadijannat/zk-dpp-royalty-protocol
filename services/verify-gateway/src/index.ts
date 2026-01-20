@@ -1,9 +1,23 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import pino from 'pino';
+import helmet from '@fastify/helmet';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { v4 as uuidv4 } from 'uuid';
 import { EventBus } from '@zkdpp/event-bus';
 import { execFileSync } from 'child_process';
+import {
+  createLogger,
+  createOptionalAuthPreHandler,
+  getKeycloakConfig,
+  registerRateLimit,
+  initMetrics,
+  getMetrics,
+  getContentType,
+  runWithContextAsync,
+  generateCorrelationId,
+  type RequestContext,
+} from '@zkdpp/shared';
 import { Verifier } from './services/verifier.js';
 import { nonceStore } from './services/nonce-store.js';
 import { registerVerifyRoutes } from './routes/verify.js';
@@ -11,10 +25,11 @@ import { registerPredicateRoutes } from './routes/predicates.js';
 import { registerHealthRoutes } from './routes/health.js';
 import type { ServiceConfig } from './types.js';
 
-const logger = pino({
-  name: 'verify-gateway',
-  level: process.env.LOG_LEVEL || 'info',
-});
+const SERVICE_NAME = 'verify-gateway';
+const logger = createLogger({ name: SERVICE_NAME });
+
+// Initialize metrics
+initMetrics(SERVICE_NAME);
 
 /**
  * Load configuration from environment variables
@@ -43,10 +58,72 @@ async function createServer(config: ServiceConfig) {
     requestIdLogLabel: 'requestId',
   });
 
+  // Security: Register Helmet for security headers
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  });
+
   // Register CORS
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN || '*',
     methods: ['GET', 'POST'],
+  });
+
+  // Register Swagger documentation
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'ZK-DPP Verify Gateway API',
+        description: 'Zero-Knowledge proof verification service for Digital Product Passports',
+        version: '0.1.0',
+      },
+      servers: [{ url: `http://${config.host}:${config.port}` }],
+      tags: [
+        { name: 'Health', description: 'Service health endpoints' },
+        { name: 'Predicates', description: 'ZK predicate discovery' },
+        { name: 'Verification', description: 'Proof verification' },
+      ],
+    },
+  });
+
+  await app.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: true,
+    },
+  });
+
+  // Register rate limiting
+  await registerRateLimit(app, {
+    max: 100,
+    timeWindow: 60000,
+  });
+
+  // Add correlation ID and context to all requests
+  app.addHook('onRequest', async (request, _reply) => {
+    const correlationId =
+      (request.headers['x-correlation-id'] as string) || generateCorrelationId();
+    request.headers['x-correlation-id'] = correlationId;
+  });
+
+  // Optional auth (verify endpoint may work without auth)
+  const authConfig = getKeycloakConfig();
+  const optionalAuth = createOptionalAuthPreHandler(authConfig);
+  app.addHook('preHandler', optionalAuth);
+
+  // Metrics endpoint
+  app.get('/metrics', async (_request, reply) => {
+    reply.header('Content-Type', getContentType());
+    return getMetrics();
   });
 
   // Initialize event bus (optional - service works without it)
@@ -86,6 +163,7 @@ async function createServer(config: ServiceConfig) {
     zkBackend: config.zkBackend,
     nargoBin: config.nargoBin,
     noirCircuitsDir: config.noirCircuitsDir,
+    nonceWindowMs: config.nonceWindowMs,
   });
   await verifier.init();
   logger.info('Verifier initialized');

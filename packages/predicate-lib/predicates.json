@@ -4,8 +4,16 @@
     "version": "V1",
     "description": "Proves recycled content percentage is greater than or equal to threshold",
     "circuitPath": "recycled_content_gte_v1",
-    "publicInputs": ["threshold", "commitment_root", "product_binding", "requester_binding"],
-    "accessGroups": ["LEGIT_INTEREST", "AUTHORITY"],
+    "publicInputs": [
+      "threshold",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
     "pricing": {
       "perVerification": 0.05,
       "currency": "EUR"
@@ -18,8 +26,16 @@
     "version": "V1",
     "description": "Proves carbon footprint is less than or equal to threshold",
     "circuitPath": "carbon_footprint_lte_v1",
-    "publicInputs": ["threshold", "commitment_root", "product_binding", "requester_binding"],
-    "accessGroups": ["LEGIT_INTEREST", "AUTHORITY"],
+    "publicInputs": [
+      "threshold",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
     "pricing": {
       "perVerification": 0.05,
       "currency": "EUR"
@@ -32,8 +48,17 @@
     "version": "V1",
     "description": "Proves a certification is valid (not expired) at a given timestamp",
     "circuitPath": "cert_valid_v1",
-    "publicInputs": ["timestamp", "commitment_root", "product_binding", "requester_binding"],
-    "accessGroups": ["PUBLIC", "LEGIT_INTEREST", "AUTHORITY"],
+    "publicInputs": [
+      "timestamp",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "PUBLIC",
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
     "pricing": {
       "perVerification": 0.03,
       "currency": "EUR"
@@ -46,13 +71,198 @@
     "version": "V1",
     "description": "Proves a product does not contain any substances from a forbidden list",
     "circuitPath": "substance_not_in_list_v1",
-    "publicInputs": ["forbidden_list_hash", "commitment_root", "product_binding", "requester_binding"],
-    "accessGroups": ["LEGIT_INTEREST", "AUTHORITY"],
+    "publicInputs": [
+      "forbidden_list_hash",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
     "pricing": {
       "perVerification": 0.08,
       "currency": "EUR"
     },
     "claimType": "substance_content",
     "comparison": "set_non_membership"
+  },
+  "BATTERY_CAPACITY_GTE_V1": {
+    "name": "BATTERY_CAPACITY_GTE",
+    "version": "V1",
+    "description": "Proves battery capacity (Wh) is greater than or equal to declared minimum",
+    "circuitPath": "battery_capacity_gte_v1",
+    "publicInputs": [
+      "threshold",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.05,
+      "currency": "EUR"
+    },
+    "claimType": "battery_capacity",
+    "comparison": "gte"
+  },
+  "BATTERY_CHEMISTRY_IN_SET_V1": {
+    "name": "BATTERY_CHEMISTRY_IN_SET",
+    "version": "V1",
+    "description": "Proves battery chemistry is one of the allowed types (LFP, NMC, NCA, LTO, Na-ion)",
+    "circuitPath": "battery_chemistry_in_set_v1",
+    "publicInputs": [
+      "set_hash",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.05,
+      "currency": "EUR"
+    },
+    "claimType": "battery_chemistry",
+    "comparison": "set_membership"
+  },
+  "COBALT_ORIGIN_NOT_IN_V1": {
+    "name": "COBALT_ORIGIN_NOT_IN",
+    "version": "V1",
+    "description": "Proves cobalt origin is NOT from conflict regions (OECD Due Diligence compliance)",
+    "circuitPath": "cobalt_origin_not_in_v1",
+    "publicInputs": [
+      "set_hash",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.08,
+      "currency": "EUR"
+    },
+    "claimType": "cobalt_origin_country",
+    "comparison": "set_non_membership"
+  },
+  "DUE_DILIGENCE_VALID_V1": {
+    "name": "DUE_DILIGENCE_VALID",
+    "version": "V1",
+    "description": "Proves supply chain due diligence certification is valid (not expired)",
+    "circuitPath": "due_diligence_valid_v1",
+    "publicInputs": [
+      "current_timestamp",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.03,
+      "currency": "EUR"
+    },
+    "claimType": "due_diligence_cert",
+    "comparison": "timestamp_before_expiry"
+  },
+  "ENERGY_DENSITY_RANGE_V1": {
+    "name": "ENERGY_DENSITY_RANGE",
+    "version": "V1",
+    "description": "Proves battery energy density (Wh/kg) is within declared range",
+    "circuitPath": "energy_density_range_v1",
+    "publicInputs": [
+      "min_threshold",
+      "max_threshold",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.05,
+      "currency": "EUR"
+    },
+    "claimType": "energy_density",
+    "comparison": "range"
+  },
+  "STATE_OF_HEALTH_GTE_V1": {
+    "name": "STATE_OF_HEALTH_GTE",
+    "version": "V1",
+    "description": "Proves battery state of health (SOH) percentage is at or above threshold",
+    "circuitPath": "state_of_health_gte_v1",
+    "publicInputs": [
+      "threshold",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.05,
+      "currency": "EUR"
+    },
+    "claimType": "state_of_health",
+    "comparison": "gte"
+  },
+  "RECYCLING_EFFICIENCY_GTE_V1": {
+    "name": "RECYCLING_EFFICIENCY_GTE",
+    "version": "V1",
+    "description": "Proves recycling process efficiency meets EU Battery Regulation thresholds (65% by 2025, 70% by 2030)",
+    "circuitPath": "recycling_efficiency_gte_v1",
+    "publicInputs": [
+      "threshold",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.05,
+      "currency": "EUR"
+    },
+    "claimType": "recycling_efficiency",
+    "comparison": "gte"
+  },
+  "CARBON_FOOTPRINT_LIFECYCLE_V1": {
+    "name": "CARBON_FOOTPRINT_LIFECYCLE",
+    "version": "V1",
+    "description": "Proves total lifecycle carbon footprint across all stages is within threshold",
+    "circuitPath": "carbon_footprint_lifecycle_v1",
+    "publicInputs": [
+      "threshold",
+      "commitment_root",
+      "product_binding",
+      "requester_binding"
+    ],
+    "accessGroups": [
+      "LEGIT_INTEREST",
+      "AUTHORITY"
+    ],
+    "pricing": {
+      "perVerification": 0.1,
+      "currency": "EUR"
+    },
+    "claimType": "carbon_footprint_lifecycle",
+    "comparison": "lifecycle_aggregate"
   }
 }

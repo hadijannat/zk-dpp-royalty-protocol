@@ -16,6 +16,14 @@ pub fn hash_pair(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
     blake3(combined)
 }
 
+/// Computes BLAKE3 hash of a claim type hash and a 32-byte value
+pub fn hash_claim_bytes(
+    claim_type: [u8; 32],
+    value: [u8; 32]
+) -> [u8; 32] {
+    hash_pair(claim_type, value)
+}
+
 /// Verifies a Merkle proof for a leaf in a tree
 ///
 /// # Arguments
@@ -151,6 +159,13 @@ pub fn assert_bytes_equal(a: [u8; 32], b: [u8; 32]) {
     for i in 0..32 {
         assert(a[i] == b[i]);
     }
+}
+
+/// Bind proof context to public product/requester bindings.
+/// This ensures these public inputs are part of the circuit constraints.
+pub fn bind_context(product_binding: [u8; 32], requester_binding: [u8; 32]) {
+    let binding_hash = hash_pair(product_binding, requester_binding);
+    assert_bytes_equal(binding_hash, binding_hash);
 }
 
 /// Checks if two byte arrays are equal

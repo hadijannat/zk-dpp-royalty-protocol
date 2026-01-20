@@ -17,7 +17,7 @@
 // - merkle_path: Sibling hashes in the Merkle tree
 // - merkle_indices: Path directions (0=left, 1=right)
 
-use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, hash_claim_value};
+use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, hash_claim_value, bind_context};
 
 // Merkle tree depth
 global TREE_DEPTH: u32 = 8;
@@ -54,6 +54,9 @@ fn main(
     // 1b. Verify claim hash binds claim type, value, and unit
     let computed_hash = hash_claim_value(claim_type_hash, actual_value as u64, unit_hash);
     assert_bytes_equal(computed_hash, claim_hash);
+
+    // 1c. Bind proof context to product and requester
+    bind_context(product_binding, requester_binding);
 
     // 2. Verify the predicate: actual_value <= threshold
     // This proves the product meets carbon footprint requirements

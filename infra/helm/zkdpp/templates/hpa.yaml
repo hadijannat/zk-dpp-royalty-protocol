@@ -1,0 +1,71 @@
+{{- if and .Values.verifyGateway.enabled .Values.verifyGateway.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-verify-gateway
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: verify-gateway
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "zkdpp.fullname" . }}-verify-gateway
+  minReplicas: {{ .Values.verifyGateway.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.verifyGateway.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.verifyGateway.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+---
+{{- if and .Values.dppBuilder.enabled .Values.dppBuilder.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-dpp-builder
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dpp-builder
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "zkdpp.fullname" . }}-dpp-builder
+  minReplicas: {{ .Values.dppBuilder.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.dppBuilder.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.dppBuilder.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+---
+{{- if and .Values.meteringBilling.enabled .Values.meteringBilling.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-metering-billing
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metering-billing
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "zkdpp.fullname" . }}-metering-billing
+  minReplicas: {{ .Values.meteringBilling.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.meteringBilling.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.meteringBilling.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

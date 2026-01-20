@@ -1,29 +1,67 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import pino from 'pino';
+import helmet from '@fastify/helmet';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { EventBus, EVENTS } from '@zkdpp/event-bus';
 import type { VerificationEvent } from '@zkdpp/schemas';
 import { canonicalId } from '@zkdpp/predicate-lib';
+import {
+  createLogger,
+  createAuthPreHandler,
+  getKeycloakConfig,
+  registerRateLimit,
+  initMetrics,
+  getMetrics,
+  getContentType,
+  generateCorrelationId,
+} from '@zkdpp/shared';
 import { Database } from './db/index.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerSettlementRoutes } from './routes/settlements.js';
-import type { ServiceConfig } from './types.js';
+import { registerBlockchainRoutes } from './routes/blockchain.js';
+import type { ServiceConfig, BlockchainConfig } from './types.js';
 
-const logger = pino({
-  name: 'metering-billing',
-  level: process.env.LOG_LEVEL || 'info',
-});
+const SERVICE_NAME = 'metering-billing';
+const logger = createLogger({ name: SERVICE_NAME });
+
+// Initialize metrics
+initMetrics(SERVICE_NAME);
 
 /**
  * Load configuration from environment variables
  */
 function loadConfig(): ServiceConfig {
-  return {
+  const config: ServiceConfig = {
     port: parseInt(process.env.PORT || '3003', 10),
     host: process.env.HOST || '0.0.0.0',
     natsUrl: process.env.NATS_URL || 'nats://localhost:4222',
     databaseUrl: process.env.DATABASE_URL || 'postgresql://zkdpp:zkdpp_dev_password@localhost:5433/zkdpp',
   };
+
+  // Load blockchain configuration if available
+  if (
+    process.env.BLOCKCHAIN_RPC_URL &&
+    process.env.BLOCKCHAIN_PRIVATE_KEY &&
+    process.env.CONTRACT_SETTLEMENT_ADDRESS
+  ) {
+    config.blockchain = {
+      rpcUrl: process.env.BLOCKCHAIN_RPC_URL,
+      privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY,
+      chainId: parseInt(process.env.BLOCKCHAIN_CHAIN_ID || '84532', 10), // Base Sepolia default
+      contracts: {
+        settlement: process.env.CONTRACT_SETTLEMENT_ADDRESS,
+        escrow: process.env.CONTRACT_ESCROW_ADDRESS || '',
+        distributor: process.env.CONTRACT_DISTRIBUTOR_ADDRESS || '',
+        usdc: process.env.CONTRACT_USDC_ADDRESS || '',
+      },
+    };
+    logger.info('Blockchain configuration loaded');
+  } else {
+    logger.info('Blockchain configuration not found - blockchain features disabled');
+  }
+
+  return config;
 }
 
 /**
@@ -35,10 +73,84 @@ async function createServer(config: ServiceConfig) {
     requestIdHeader: 'x-request-id',
   });
 
+  // Security: Register Helmet for security headers
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  });
+
   // Register CORS
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN || '*',
     methods: ['GET', 'POST'],
+  });
+
+  // Register Swagger documentation
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'ZK-DPP Metering & Billing API',
+        description: 'Usage tracking, settlement management, and blockchain integration for data royalties',
+        version: '0.1.0',
+      },
+      servers: [{ url: `http://${config.host}:${config.port}` }],
+      tags: [
+        { name: 'Health', description: 'Service health endpoints' },
+        { name: 'Usage', description: 'Verification usage tracking' },
+        { name: 'Settlements', description: 'Settlement statement management' },
+        { name: 'Blockchain', description: 'On-chain settlement operations' },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+        },
+      },
+    },
+  });
+
+  await app.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: true,
+    },
+  });
+
+  // Register rate limiting (stricter for settlement endpoints)
+  await registerRateLimit(app, {
+    max: 100,
+    timeWindow: 60000,
+  });
+
+  // Add correlation ID to all requests
+  app.addHook('onRequest', async (request, _reply) => {
+    const correlationId =
+      (request.headers['x-correlation-id'] as string) || generateCorrelationId();
+    request.headers['x-correlation-id'] = correlationId;
+  });
+
+  // Auth required for all metering endpoints
+  const authConfig = getKeycloakConfig();
+  const authHandler = createAuthPreHandler(authConfig);
+
+  // Decorate app to allow routes to skip auth for health checks
+  app.decorate('authenticate', authHandler);
+
+  // Metrics endpoint (no auth required)
+  app.get('/metrics', async (_request, reply) => {
+    reply.header('Content-Type', getContentType());
+    return getMetrics();
   });
 
   // Initialize database
@@ -124,6 +236,7 @@ async function createServer(config: ServiceConfig) {
   // Register routes
   registerUsageRoutes(app, db);
   registerSettlementRoutes(app, db);
+  registerBlockchainRoutes(app, db, config.blockchain);
 
   // Graceful shutdown
   const shutdown = async () => {

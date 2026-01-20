@@ -1,54 +1,37 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
-import '@fastify/jwt';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import {
+  requireDppViewAccess,
+  hasAnyRole,
+  DppViewRoles,
+  type DppViewType,
+  type AuthUser,
+} from '@zkdpp/shared';
 import type { ViewComposer } from '../services/view-composer.js';
 import type { AccessLevel, GetDPPViewResponse } from '../types.js';
 
-function extractRoles(user: unknown): string[] {
-  if (!user || typeof user !== 'object') return [];
-  const u = user as Record<string, unknown>;
+/**
+ * Map URL path to access level
+ */
+const viewTypeMap: Record<string, AccessLevel> = {
+  'public': 'PUBLIC',
+  'legit-interest': 'LEGIT_INTEREST',
+  'authority': 'AUTHORITY',
+};
 
-  if (Array.isArray(u.roles)) return u.roles.map(String);
-  if (typeof u.role === 'string') return [u.role];
-
-  const realmAccess = u.realm_access as { roles?: string[] } | undefined;
-  if (realmAccess?.roles) return realmAccess.roles.map(String);
-
-  return [];
-}
-
-type AuthResult = 'ok' | 'unauthorized' | 'forbidden';
-
-async function requireRole(
-  request: FastifyRequest,
-  required: AccessLevel
-): Promise<AuthResult> {
-  try {
-    await request.jwtVerify();
-  } catch {
-    return 'unauthorized';
-  }
-
-  const roles = extractRoles((request as any).user);
-  if (required === 'LEGIT_INTEREST') {
-    if (roles.includes('LEGIT_INTEREST') || roles.includes('AUTHORITY')) {
-      return 'ok';
-    }
-  }
-
-  if (required === 'AUTHORITY') {
-    if (roles.includes('AUTHORITY')) {
-      return 'ok';
-    }
-  }
-
-  return 'forbidden';
-}
+/**
+ * Map access level to DPP view type for RBAC
+ */
+const accessToDppView: Record<AccessLevel, DppViewType> = {
+  'PUBLIC': 'PUBLIC',
+  'LEGIT_INTEREST': 'LEGIT_INTEREST',
+  'AUTHORITY': 'AUTHORITY',
+};
 
 export function registerDPPRoutes(app: FastifyInstance, viewComposer: ViewComposer): void {
   /**
    * GET /dpp/:id/view/public
    *
-   * Get the public view of a DPP
+   * Get the public view of a DPP (no auth required)
    */
   app.get<{
     Params: { id: string };
@@ -85,7 +68,7 @@ export function registerDPPRoutes(app: FastifyInstance, viewComposer: ViewCompos
    * GET /dpp/:id/view/legit-interest
    *
    * Get the legitimate interest view of a DPP.
-   * In production, this requires authentication and authorization.
+   * Requires authentication and LEGIT_INTEREST access.
    */
   app.get<{
     Params: { id: string };
@@ -102,19 +85,14 @@ export function registerDPPRoutes(app: FastifyInstance, viewComposer: ViewCompos
         },
         response: {
           200: { type: 'object', additionalProperties: true },
-          401: { type: 'object', properties: { error: { type: 'string' } } },
-          403: { type: 'object', properties: { error: { type: 'string' } } },
+          401: { type: 'object', properties: { error: { type: 'string' }, code: { type: 'string' } } },
+          403: { type: 'object', properties: { error: { type: 'string' }, code: { type: 'string' } } },
           404: { type: 'object', properties: { error: { type: 'string' } } },
         },
       },
+      preHandler: requireDppViewAccess('LEGIT_INTEREST'),
     },
     async (request, reply): Promise<GetDPPViewResponse> => {
-      const auth = await requireRole(request, 'LEGIT_INTEREST');
-      if (auth !== 'ok') {
-        reply.code(auth === 'unauthorized' ? 401 : 403);
-        return { success: false, error: auth === 'unauthorized' ? 'Unauthorized' : 'Forbidden' };
-      }
-
       const dpp = await viewComposer.composeDPPView(request.params.id, 'LEGIT_INTEREST');
 
       if (!dpp) {
@@ -130,7 +108,7 @@ export function registerDPPRoutes(app: FastifyInstance, viewComposer: ViewCompos
    * GET /dpp/:id/view/authority
    *
    * Get the authority view of a DPP.
-   * In production, this requires authentication and AUTHORITY role.
+   * Requires authentication and AUTHORITY role.
    */
   app.get<{
     Params: { id: string };
@@ -147,19 +125,14 @@ export function registerDPPRoutes(app: FastifyInstance, viewComposer: ViewCompos
         },
         response: {
           200: { type: 'object', additionalProperties: true },
-          401: { type: 'object', properties: { error: { type: 'string' } } },
-          403: { type: 'object', properties: { error: { type: 'string' } } },
+          401: { type: 'object', properties: { error: { type: 'string' }, code: { type: 'string' } } },
+          403: { type: 'object', properties: { error: { type: 'string' }, code: { type: 'string' } } },
           404: { type: 'object', properties: { error: { type: 'string' } } },
         },
       },
+      preHandler: requireDppViewAccess('AUTHORITY'),
     },
     async (request, reply): Promise<GetDPPViewResponse> => {
-      const auth = await requireRole(request, 'AUTHORITY');
-      if (auth !== 'ok') {
-        reply.code(auth === 'unauthorized' ? 401 : 403);
-        return { success: false, error: auth === 'unauthorized' ? 'Unauthorized' : 'Forbidden' };
-      }
-
       const dpp = await viewComposer.composeDPPView(request.params.id, 'AUTHORITY');
 
       if (!dpp) {
@@ -194,30 +167,39 @@ export function registerDPPRoutes(app: FastifyInstance, viewComposer: ViewCompos
         response: {
           200: { type: 'object', additionalProperties: true },
           400: { type: 'object', properties: { error: { type: 'string' } } },
-          401: { type: 'object', properties: { error: { type: 'string' } } },
-          403: { type: 'object', properties: { error: { type: 'string' } } },
+          401: { type: 'object', properties: { error: { type: 'string' }, code: { type: 'string' } } },
+          403: { type: 'object', properties: { error: { type: 'string' }, code: { type: 'string' } } },
           404: { type: 'object', properties: { error: { type: 'string' } } },
         },
       },
     },
     async (request, reply): Promise<GetDPPViewResponse> => {
-      const levelMap: Record<string, AccessLevel> = {
-        'public': 'PUBLIC',
-        'legit-interest': 'LEGIT_INTEREST',
-        'authority': 'AUTHORITY',
-      };
-
-      const accessLevel = levelMap[request.params.level.toLowerCase()];
+      const accessLevel = viewTypeMap[request.params.level.toLowerCase()];
       if (!accessLevel) {
         reply.code(400);
         return { success: false, error: 'Invalid access level' };
       }
 
+      // Check authorization for non-public views
       if (accessLevel !== 'PUBLIC') {
-        const auth = await requireRole(request, accessLevel);
-        if (auth !== 'ok') {
-          reply.code(auth === 'unauthorized' ? 401 : 403);
-          return { success: false, error: auth === 'unauthorized' ? 'Unauthorized' : 'Forbidden' };
+        const dppViewType = accessToDppView[accessLevel];
+        const requiredRoles = DppViewRoles[dppViewType];
+        const user = (request as FastifyRequest & { user?: AuthUser }).user;
+
+        if (!user) {
+          reply.code(401);
+          return {
+            success: false,
+            error: 'Authentication required for this view',
+          };
+        }
+
+        if (!hasAnyRole(user, requiredRoles)) {
+          reply.code(403);
+          return {
+            success: false,
+            error: `Access denied to ${dppViewType} view`,
+          };
         }
       }
 

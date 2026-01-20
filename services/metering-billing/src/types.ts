@@ -68,6 +68,86 @@ export interface ServiceConfig {
   host: string;
   natsUrl: string;
   databaseUrl: string;
+  blockchain?: BlockchainConfig;
+}
+
+/**
+ * Blockchain configuration
+ */
+export interface BlockchainConfig {
+  rpcUrl: string;
+  privateKey: string;
+  chainId: number;
+  contracts: {
+    settlement: string;
+    escrow: string;
+    distributor: string;
+    usdc: string;
+  };
+}
+
+/**
+ * Blockchain status for a settlement
+ */
+export type BlockchainStatus =
+  | 'NOT_SUBMITTED'
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'FINALIZED'
+  | 'DISPUTED'
+  | 'PAID'
+  | 'FAILED';
+
+/**
+ * Extended settlement statement with blockchain info
+ */
+export interface SettlementStatementWithBlockchain extends SettlementStatement {
+  supplier_wallet?: string;
+  blockchain_status: BlockchainStatus;
+  tx_hash?: string;
+  block_number?: number;
+  chain_submitted_at?: string;
+  chain_finalized_at?: string;
+}
+
+/**
+ * Supplier wallet registration
+ */
+export interface SupplierWallet {
+  supplier_id: string;
+  wallet_address: string;
+  created_at: string;
+}
+
+/**
+ * Request to submit settlement on-chain
+ */
+export interface SubmitOnChainRequest {
+  supplierWallet: string;
+}
+
+/**
+ * Response from on-chain submission
+ */
+export interface SubmitOnChainResponse {
+  success: boolean;
+  txHash?: string;
+  blockNumber?: number;
+  error?: string;
+}
+
+/**
+ * Blockchain status response
+ */
+export interface BlockchainStatusResponse {
+  statementId: string;
+  blockchainStatus: BlockchainStatus;
+  txHash?: string;
+  blockNumber?: number;
+  chainSubmittedAt?: string;
+  chainFinalizedAt?: string;
+  isFinalizable?: boolean;
+  remainingDisputeTime?: number;
 }
 
 /**

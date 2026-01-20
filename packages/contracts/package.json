@@ -1,0 +1,31 @@
+{
+  "name": "@zkdpp/contracts",
+  "version": "0.1.0",
+  "description": "TypeScript client for ZK-DPP Royalty Protocol smart contracts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/abis"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "copy-abis": "node scripts/copy-abis.js"
+  },
+  "dependencies": {
+    "ethers": "^6.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

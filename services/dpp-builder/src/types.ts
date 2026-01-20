@@ -170,5 +170,4 @@ export interface ServiceConfig {
   host: string;
   natsUrl: string;
   databaseUrl: string;
-  jwtSecret: string;
 }

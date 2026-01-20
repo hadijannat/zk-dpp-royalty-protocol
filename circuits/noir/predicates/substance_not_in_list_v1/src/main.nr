@@ -22,7 +22,7 @@
 // - claim_hash: hash_substance_list("SUBP", claim_type_hash, product_substances)
 // - merkle_path, merkle_indices, tree_depth: Merkle proof components
 
-use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, bytes_equal, hash_substance_list};
+use zkdpp_lib::{verify_merkle_proof, assert_bytes_equal, bytes_equal, hash_substance_list, bind_context};
 
 // Maximum substances we can check
 global MAX_PRODUCT_SUBSTANCES: u32 = 32;
@@ -72,6 +72,9 @@ fn main(
     // 2b. Verify claim hash binds product substance list
     let product_hash = hash_substance_list([0x53, 0x55, 0x42, 0x50], claim_type_hash, product_substances, num_substances);
     assert_bytes_equal(product_hash, claim_hash);
+
+    // 2c. Bind proof context to product and requester
+    bind_context(product_binding, requester_binding);
 
     // 3. Verify non-membership: no product substance is in forbidden list
     for i in 0..MAX_PRODUCT_SUBSTANCES {

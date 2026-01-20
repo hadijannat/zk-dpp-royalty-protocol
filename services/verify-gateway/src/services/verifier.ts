@@ -15,6 +15,7 @@ export interface VerifierConfig {
   zkBackend: 'noir-cli' | 'mock';
   nargoBin: string;
   noirCircuitsDir?: string;
+  nonceWindowMs: number;
 }
 
 /**

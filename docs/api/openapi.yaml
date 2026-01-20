@@ -1,0 +1,1533 @@
+openapi: 3.1.0
+info:
+  title: ZK-DPP Royalty Protocol API
+  description: |
+    API documentation for the Zero-Knowledge Digital Product Passport (DPP) Royalty Protocol.
+
+    This protocol enables privacy-preserving compliance verification for supply chain data,
+    allowing suppliers to prove compliance without exposing trade secrets.
+
+    ## Services Overview
+
+    The system consists of three microservices:
+
+    | Service | Port | Purpose |
+    |---------|------|---------|
+    | verify-gateway | 3001 | ZK proof verification and receipt issuance |
+    | dpp-builder | 3002 | Product management and DPP view composition |
+    | metering-billing | 3003 | Usage tracking and settlement management |
+
+    ## Authentication
+
+    Most endpoints require JWT authentication via Keycloak. Include the token in the Authorization header:
+
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Access Levels
+
+    DPP views are tiered by access level:
+    - **PUBLIC**: No authentication required
+    - **LEGIT_INTEREST**: Requires `auditor` or `authority` role
+    - **AUTHORITY**: Requires `authority` role
+  version: 0.1.0
+  license:
+    name: Apache-2.0 OR MIT
+    url: https://github.com/hadijannat/zk-dpp-royalty-protocol/blob/main/LICENSE
+  contact:
+    name: ZK-DPP Team
+    url: https://github.com/hadijannat/zk-dpp-royalty-protocol
+
+servers:
+  - url: http://localhost:3001
+    description: Verify Gateway (local development)
+  - url: http://localhost:3002
+    description: DPP Builder (local development)
+  - url: http://localhost:3003
+    description: Metering & Billing (local development)
+
+tags:
+  - name: Health
+    description: Service health and readiness endpoints
+  - name: Predicates
+    description: ZK predicate discovery and information
+  - name: Verification
+    description: ZK proof verification
+  - name: Products
+    description: Product management
+  - name: DPP Views
+    description: Digital Product Passport composition
+  - name: Usage
+    description: Verification usage tracking
+  - name: Settlements
+    description: Settlement statement management
+  - name: Blockchain
+    description: On-chain settlement operations
+
+paths:
+  # ===========================================
+  # VERIFY GATEWAY (Port 3001)
+  # ===========================================
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns service health status and dependency states
+      operationId: getHealth
+      servers:
+        - url: http://localhost:3001
+        - url: http://localhost:3002
+        - url: http://localhost:3003
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                timestamp: "2024-01-15T10:30:00Z"
+                version: "0.1.0"
+                services:
+                  database: true
+                  nats: true
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: Kubernetes readiness probe - returns 200 if service is ready to accept traffic
+      operationId: getReady
+      servers:
+        - url: http://localhost:3001
+        - url: http://localhost:3002
+        - url: http://localhost:3003
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                    example: true
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                    example: false
+
+  /live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Kubernetes liveness probe - returns 200 if service process is alive
+      operationId: getLive
+      servers:
+        - url: http://localhost:3001
+        - url: http://localhost:3002
+        - url: http://localhost:3003
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alive:
+                    type: boolean
+                    example: true
+
+  /metrics:
+    get:
+      tags: [Health]
+      summary: Prometheus metrics
+      description: Returns Prometheus-formatted metrics for monitoring
+      operationId: getMetrics
+      servers:
+        - url: http://localhost:3001
+        - url: http://localhost:3002
+        - url: http://localhost:3003
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP process_cpu_user_seconds_total Total user CPU time spent
+                # TYPE process_cpu_user_seconds_total counter
+                process_cpu_user_seconds_total 0.5
+
+  /predicates:
+    get:
+      tags: [Predicates]
+      summary: List all predicates
+      description: Returns all available ZK predicates with their verification details
+      operationId: listPredicates
+      servers:
+        - url: http://localhost:3001
+      responses:
+        '200':
+          description: List of available predicates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  predicates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PredicateInfo'
+              example:
+                predicates:
+                  - id: "RECYCLED_CONTENT_GTE_V1"
+                    name: "RECYCLED_CONTENT_GTE"
+                    version: "V1"
+                    description: "Proves recycled content >= threshold"
+                    accessGroups: ["LEGIT_INTEREST", "AUTHORITY"]
+                    pricing:
+                      perVerification: 0.05
+                      currency: "EUR"
+
+  /predicates/{id}:
+    get:
+      tags: [Predicates]
+      summary: Get predicate details
+      description: Returns detailed information about a specific predicate
+      operationId: getPredicateById
+      servers:
+        - url: http://localhost:3001
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Predicate identifier (e.g., RECYCLED_CONTENT_GTE_V1)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Predicate details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredicateInfo'
+        '404':
+          description: Predicate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /verify:
+    post:
+      tags: [Verification]
+      summary: Verify a ZK proof
+      description: |
+        Verifies a zero-knowledge proof package and returns a signed verification receipt.
+
+        The proof package contains:
+        - ZK proof bytes
+        - Public inputs (commitment root, thresholds, bindings)
+        - Context information (supplier, requester, timestamps)
+
+        On successful verification, a signed receipt is issued and published to the event bus.
+      operationId: verifyProof
+      servers:
+        - url: http://localhost:3001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proofPackage]
+              properties:
+                proofPackage:
+                  $ref: '#/components/schemas/ProofPackage'
+            example:
+              proofPackage:
+                predicateId:
+                  name: "RECYCLED_CONTENT_GTE"
+                  version: "V1"
+                proof: "base64-encoded-proof-bytes..."
+                publicInputs:
+                  commitmentRoot: "0x1234..."
+                  productBinding: "0xabcd..."
+                  requesterBinding: "0xef01..."
+                  threshold: 25
+                context:
+                  supplierId: "supplier-001"
+                  requesterId: "brand-001"
+                  nonce: "abc123"
+                  validFrom: "2024-01-15T00:00:00Z"
+                  validUntil: "2024-01-15T01:00:00Z"
+      responses:
+        '200':
+          description: Proof verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  receipt:
+                    $ref: '#/components/schemas/VerificationReceipt'
+              example:
+                success: true
+                receipt:
+                  id: "receipt-uuid-123"
+                  predicateId:
+                    name: "RECYCLED_CONTENT_GTE"
+                    version: "V1"
+                  commitmentRoot: "0x1234..."
+                  verifiedAt: "2024-01-15T10:30:00Z"
+                  gatewayId: "gateway-abc123"
+                  signature: "sig..."
+        '400':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Proof verification failed: invalid merkle path"
+
+  # ===========================================
+  # DPP BUILDER (Port 3002)
+  # ===========================================
+
+  /products:
+    get:
+      tags: [Products]
+      summary: List products
+      description: Returns a paginated list of all products
+      operationId: listProducts
+      servers:
+        - url: http://localhost:3002
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+          description: Maximum number of products to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of products to skip
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+
+    post:
+      tags: [Products]
+      summary: Create a product
+      description: Creates a new product in the system
+      operationId: createProduct
+      servers:
+        - url: http://localhost:3002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+            example:
+              sku: "BAT-2024-001"
+              name: "EV Battery Module X1"
+              description: "High-capacity lithium-ion battery for electric vehicles"
+              category: "battery"
+              metadata:
+                capacity: "75kWh"
+                chemistry: "NMC"
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  product:
+                    $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid request (e.g., SKU already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by ID
+      description: Returns a specific product by its ID
+      operationId: getProductById
+      servers:
+        - url: http://localhost:3002
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID
+      responses:
+        '200':
+          description: Product details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product:
+                    $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /products/{id}/link-supplier:
+    post:
+      tags: [Products]
+      summary: Link supplier to product
+      description: Associates a supplier's commitment with a product
+      operationId: linkSupplierToProduct
+      servers:
+        - url: http://localhost:3002
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkSupplierRequest'
+            example:
+              supplierId: "supplier-001"
+              commitmentRoot: "0x1234abcd..."
+              supplierPublicKey: "0xpubkey..."
+      responses:
+        '201':
+          description: Supplier linked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  link:
+                    $ref: '#/components/schemas/SupplierLink'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /products/{id}/verifications:
+    post:
+      tags: [Products]
+      summary: Record verification
+      description: Records a predicate verification result for a product
+      operationId: recordVerification
+      servers:
+        - url: http://localhost:3002
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordVerificationRequest'
+      responses:
+        '201':
+          description: Verification recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  verification:
+                    type: object
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /dpp/{id}/view/public:
+    get:
+      tags: [DPP Views]
+      summary: Get public DPP view
+      description: |
+        Returns the public view of a Digital Product Passport.
+        No authentication required.
+
+        Contains: basic product info, category, public metadata
+      operationId: getDppPublicView
+      servers:
+        - url: http://localhost:3002
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID
+      responses:
+        '200':
+          description: Public DPP view
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  dpp:
+                    $ref: '#/components/schemas/DppPublicView'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /dpp/{id}/view/legit-interest:
+    get:
+      tags: [DPP Views]
+      summary: Get legitimate interest DPP view
+      description: |
+        Returns the legitimate interest view of a Digital Product Passport.
+        Requires authentication with `auditor` or `authority` role.
+
+        Contains: public info + verified predicate results (boolean pass/fail, no raw values)
+      operationId: getDppLegitInterestView
+      servers:
+        - url: http://localhost:3002
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID
+      responses:
+        '200':
+          description: Legitimate interest DPP view
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  dpp:
+                    $ref: '#/components/schemas/DppLegitInterestView'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /dpp/{id}/view/authority:
+    get:
+      tags: [DPP Views]
+      summary: Get authority DPP view
+      description: |
+        Returns the full authority view of a Digital Product Passport.
+        Requires authentication with `authority` role.
+
+        Contains: all info + raw values + full audit trail
+      operationId: getDppAuthorityView
+      servers:
+        - url: http://localhost:3002
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID
+      responses:
+        '200':
+          description: Authority DPP view
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  dpp:
+                    $ref: '#/components/schemas/DppAuthorityView'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ===========================================
+  # METERING & BILLING (Port 3003)
+  # ===========================================
+
+  /usage:
+    post:
+      tags: [Usage]
+      summary: Record usage event
+      description: Records a verification usage event for billing purposes
+      operationId: recordUsage
+      servers:
+        - url: http://localhost:3003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordUsageRequest'
+            example:
+              eventId: "evt-123"
+              supplierId: "supplier-001"
+              brandId: "brand-001"
+              predicateId: "RECYCLED_CONTENT_GTE_V1"
+              receiptId: "receipt-456"
+              verifiedAt: "2024-01-15T10:30:00Z"
+      responses:
+        '201':
+          description: Usage recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  usage:
+                    type: object
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usage/supplier/{supplierId}:
+    get:
+      tags: [Usage]
+      summary: Get supplier usage summary
+      description: Returns usage summary for a specific supplier
+      operationId: getSupplierUsageSummary
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: supplierId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter start date (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter end date (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Usage summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  summary:
+                    $ref: '#/components/schemas/UsageSummary'
+
+  /usage/aggregations/{supplierId}:
+    get:
+      tags: [Usage]
+      summary: Get monthly aggregations
+      description: Returns monthly usage aggregations for a supplier
+      operationId: getMonthlyAggregations
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: supplierId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: startMonth
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          description: Start month (YYYY-MM)
+        - name: endMonth
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          description: End month (YYYY-MM)
+      responses:
+        '200':
+          description: Monthly aggregations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  aggregations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MonthlyAggregation'
+
+  /settlements:
+    post:
+      tags: [Settlements]
+      summary: Generate settlement statement
+      description: Creates a new settlement statement for a supplier and period
+      operationId: generateSettlement
+      servers:
+        - url: http://localhost:3003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateStatementRequest'
+            example:
+              supplierId: "supplier-001"
+              periodStart: "2024-01-01"
+              periodEnd: "2024-01-31"
+      responses:
+        '201':
+          description: Statement generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  statement:
+                    $ref: '#/components/schemas/SettlementStatement'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /settlements/{id}:
+    get:
+      tags: [Settlements]
+      summary: Get settlement statement
+      description: Returns a specific settlement statement by ID
+      operationId: getSettlement
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Settlement statement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statement:
+                    $ref: '#/components/schemas/SettlementStatement'
+        '404':
+          description: Statement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /settlements/supplier/{supplierId}:
+    get:
+      tags: [Settlements]
+      summary: List supplier settlements
+      description: Returns all settlement statements for a supplier
+      operationId: listSupplierSettlements
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: supplierId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of statements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statements:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SettlementStatement'
+
+  /settlements/{id}/finalize:
+    post:
+      tags: [Settlements]
+      summary: Finalize settlement
+      description: Finalizes a draft settlement statement
+      operationId: finalizeSettlement
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statement finalized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  statement:
+                    $ref: '#/components/schemas/SettlementStatement'
+        '400':
+          description: Cannot finalize (wrong status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Statement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /settlements/{id}/submit-on-chain:
+    post:
+      tags: [Blockchain]
+      summary: Submit settlement to blockchain
+      description: |
+        Submits a finalized settlement statement to the blockchain smart contract.
+        Requires blockchain configuration to be enabled.
+      operationId: submitSettlementOnChain
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplierWallet]
+              properties:
+                supplierWallet:
+                  type: string
+                  pattern: '^0x[a-fA-F0-9]{40}$'
+                  description: Ethereum wallet address for the supplier
+            example:
+              supplierWallet: "0x1234567890123456789012345678901234567890"
+      responses:
+        '200':
+          description: Settlement submitted to blockchain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockchainTransactionResponse'
+        '400':
+          description: Invalid request or statement not finalized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Statement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /settlements/{id}/finalize-on-chain:
+    post:
+      tags: [Blockchain]
+      summary: Finalize settlement on blockchain
+      description: |
+        Finalizes a settlement on the blockchain after the dispute window has passed.
+        This transfers funds to the supplier's claimable balance.
+      operationId: finalizeSettlementOnChain
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Settlement finalized on blockchain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockchainTransactionResponse'
+        '400':
+          description: Dispute window not passed or invalid status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /settlements/{id}/blockchain-status:
+    get:
+      tags: [Blockchain]
+      summary: Get blockchain status
+      description: Returns the blockchain status of a settlement
+      operationId: getSettlementBlockchainStatus
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Blockchain status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockchainStatusResponse'
+        '404':
+          description: Statement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /supplier-wallets:
+    post:
+      tags: [Blockchain]
+      summary: Register supplier wallet
+      description: Registers an Ethereum wallet address for a supplier
+      operationId: registerSupplierWallet
+      servers:
+        - url: http://localhost:3003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplierId, walletAddress]
+              properties:
+                supplierId:
+                  type: string
+                walletAddress:
+                  type: string
+                  pattern: '^0x[a-fA-F0-9]{40}$'
+      responses:
+        '201':
+          description: Wallet registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  wallet:
+                    $ref: '#/components/schemas/SupplierWallet'
+        '400':
+          description: Invalid wallet address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /supplier-wallets/{supplierId}:
+    get:
+      tags: [Blockchain]
+      summary: Get supplier wallet
+      description: Returns the registered wallet for a supplier
+      operationId: getSupplierWallet
+      servers:
+        - url: http://localhost:3003
+      parameters:
+        - name: supplierId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Supplier wallet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallet:
+                    $ref: '#/components/schemas/SupplierWallet'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Keycloak
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        success:
+          type: boolean
+          default: false
+
+    AuthError:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum: [AUTH_REQUIRED, INSUFFICIENT_ROLE]
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        services:
+          type: object
+          properties:
+            database:
+              type: boolean
+            nats:
+              type: boolean
+
+    PredicateId:
+      type: object
+      required: [name, version]
+      properties:
+        name:
+          type: string
+          description: Predicate name (e.g., RECYCLED_CONTENT_GTE)
+        version:
+          type: string
+          description: Predicate version (e.g., V1)
+
+    PredicateInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Full predicate identifier
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        accessGroups:
+          type: array
+          items:
+            type: string
+            enum: [PUBLIC, LEGIT_INTEREST, AUTHORITY]
+        pricing:
+          type: object
+          properties:
+            perVerification:
+              type: number
+            currency:
+              type: string
+
+    ProofPackage:
+      type: object
+      required: [predicateId, proof, publicInputs, context]
+      properties:
+        predicateId:
+          $ref: '#/components/schemas/PredicateId'
+        proof:
+          type: string
+          description: Base64-encoded ZK proof bytes
+        publicInputs:
+          type: object
+          properties:
+            commitmentRoot:
+              type: string
+              description: Merkle root of the commitment
+            productBinding:
+              type: string
+              description: Binding to the product
+            requesterBinding:
+              type: string
+              description: Binding to the requester
+            threshold:
+              type: integer
+              description: Threshold value for comparison predicates
+        context:
+          type: object
+          properties:
+            supplierId:
+              type: string
+            requesterId:
+              type: string
+            nonce:
+              type: string
+            validFrom:
+              type: string
+              format: date-time
+            validUntil:
+              type: string
+              format: date-time
+
+    VerificationReceipt:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        predicateId:
+          $ref: '#/components/schemas/PredicateId'
+        commitmentRoot:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+        gatewayId:
+          type: string
+        signature:
+          type: string
+          description: Gateway signature over the receipt
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateProductRequest:
+      type: object
+      required: [sku, name, category]
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        metadata:
+          type: object
+
+    LinkSupplierRequest:
+      type: object
+      required: [supplierId, commitmentRoot, supplierPublicKey]
+      properties:
+        supplierId:
+          type: string
+        commitmentRoot:
+          type: string
+        supplierPublicKey:
+          type: string
+
+    SupplierLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        supplierId:
+          type: string
+        commitmentRoot:
+          type: string
+        supplierPublicKey:
+          type: string
+        linkedAt:
+          type: string
+          format: date-time
+
+    RecordVerificationRequest:
+      type: object
+      required: [predicateId, receiptId, result, supplierId]
+      properties:
+        predicateId:
+          type: string
+        receiptId:
+          type: string
+        result:
+          type: boolean
+        supplierId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    DppPublicView:
+      type: object
+      properties:
+        productId:
+          type: string
+        sku:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        accessLevel:
+          type: string
+          enum: [PUBLIC]
+
+    DppLegitInterestView:
+      allOf:
+        - $ref: '#/components/schemas/DppPublicView'
+        - type: object
+          properties:
+            accessLevel:
+              type: string
+              enum: [LEGIT_INTEREST]
+            verifiedPredicates:
+              type: array
+              items:
+                type: object
+                properties:
+                  predicateId:
+                    type: string
+                  passed:
+                    type: boolean
+                  verifiedAt:
+                    type: string
+                    format: date-time
+
+    DppAuthorityView:
+      allOf:
+        - $ref: '#/components/schemas/DppLegitInterestView'
+        - type: object
+          properties:
+            accessLevel:
+              type: string
+              enum: [AUTHORITY]
+            supplierLinks:
+              type: array
+              items:
+                $ref: '#/components/schemas/SupplierLink'
+            auditTrail:
+              type: array
+              items:
+                type: object
+                properties:
+                  action:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  actor:
+                    type: string
+
+    RecordUsageRequest:
+      type: object
+      required: [eventId, supplierId, predicateId, receiptId, verifiedAt]
+      properties:
+        eventId:
+          type: string
+        supplierId:
+          type: string
+        brandId:
+          type: string
+        predicateId:
+          type: string
+        receiptId:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+
+    UsageSummary:
+      type: object
+      properties:
+        supplier_id:
+          type: string
+        period:
+          type: string
+        total_verifications:
+          type: integer
+        total_amount:
+          type: number
+        currency:
+          type: string
+        by_predicate:
+          type: array
+          items:
+            type: object
+            properties:
+              predicate_id:
+                type: string
+              count:
+                type: integer
+              amount:
+                type: number
+
+    MonthlyAggregation:
+      type: object
+      properties:
+        month:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+        predicate_id:
+          type: string
+        brand_id:
+          type: string
+        verification_count:
+          type: integer
+        total_amount:
+          type: number
+        currency:
+          type: string
+
+    GenerateStatementRequest:
+      type: object
+      required: [supplierId, periodStart, periodEnd]
+      properties:
+        supplierId:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+
+    SettlementStatement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        total_verifications:
+          type: integer
+        total_amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, FINALIZED, PAID]
+        breakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              predicate_id:
+                type: string
+              brand_id:
+                type: string
+              count:
+                type: integer
+              amount:
+                type: number
+        created_at:
+          type: string
+          format: date-time
+        finalized_at:
+          type: string
+          format: date-time
+
+    BlockchainTransactionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        txHash:
+          type: string
+          description: Transaction hash on the blockchain
+        blockNumber:
+          type: integer
+          description: Block number where transaction was included
+        error:
+          type: string
+
+    BlockchainStatusResponse:
+      type: object
+      properties:
+        statementId:
+          type: string
+        blockchainStatus:
+          type: string
+          enum: [NOT_SUBMITTED, PENDING, SUBMITTED, FINALIZED, FAILED]
+        txHash:
+          type: string
+        blockNumber:
+          type: integer
+        chainSubmittedAt:
+          type: string
+          format: date-time
+        chainFinalizedAt:
+          type: string
+          format: date-time
+        isFinalizable:
+          type: boolean
+          description: Whether the dispute window has passed
+        remainingDisputeTime:
+          type: integer
+          description: Seconds remaining in dispute window
+
+    SupplierWallet:
+      type: object
+      properties:
+        supplier_id:
+          type: string
+        wallet_address:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{40}$'
+        created_at:
+          type: string
+          format: date-time

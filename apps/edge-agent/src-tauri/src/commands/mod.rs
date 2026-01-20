@@ -615,6 +615,13 @@ fn hash_claim_value(claim_type_hash: [u8; 32], value: u64, unit_hash: [u8; 32]) 
     commitments::hash_bytes(&data)
 }
 
+fn hash_claim_bytes(claim_type_hash: [u8; 32], value_hash: [u8; 32]) -> [u8; 32] {
+    let mut data = [0u8; 64];
+    data[..32].copy_from_slice(&claim_type_hash);
+    data[32..64].copy_from_slice(&value_hash);
+    commitments::hash_bytes(&data)
+}
+
 fn hash_cert_window(claim_type_hash: [u8; 32], valid_from: u64, valid_until: u64) -> [u8; 32] {
     let mut data = [0u8; 48];
     data[..32].copy_from_slice(&claim_type_hash);
@@ -680,6 +687,12 @@ fn compute_claim_hash(claim: &Claim) -> Result<[u8; 32], String> {
             let count = product_substances_bytes.len() as u32;
             let claim_type_hash = hash_claim_type(&claim.claim_type);
             Ok(hash_substance_list(DOMAIN_SUBSTANCE_PRODUCT, claim_type_hash, &product_substances_bytes, count))
+        }
+        "battery_chemistry" | "cobalt_origin_country" => {
+            let value = claim.value.as_str().ok_or_else(|| "Claim value must be string".to_string())?;
+            let value_hash = substance_id_from_str(value);
+            let claim_type_hash = hash_claim_type(&claim.claim_type);
+            Ok(hash_claim_bytes(claim_type_hash, value_hash))
         }
         _ => hash_claim(claim).map_err(|e| e.to_string()),
     }

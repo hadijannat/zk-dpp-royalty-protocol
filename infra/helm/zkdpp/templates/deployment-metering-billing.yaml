@@ -1,0 +1,123 @@
+{{- if .Values.meteringBilling.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zkdpp.fullname" . }}-metering-billing
+  labels:
+    {{- include "zkdpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metering-billing
+spec:
+  {{- if not .Values.meteringBilling.autoscaling.enabled }}
+  replicas: {{ .Values.meteringBilling.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "zkdpp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: metering-billing
+  template:
+    metadata:
+      {{- with .Values.meteringBilling.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "zkdpp.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: metering-billing
+    spec:
+      {{- include "zkdpp.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "zkdpp.serviceAccountName" . }}
+      {{- with .Values.meteringBilling.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: metering-billing
+          {{- with .Values.meteringBilling.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "zkdpp.image" (dict "image" .Values.meteringBilling.image "Chart" .Chart "Values" .Values) }}
+          imagePullPolicy: {{ .Values.meteringBilling.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3003
+              protocol: TCP
+          env:
+            {{- range $key, $value := .Values.meteringBilling.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: NATS_URL
+              value: {{ .Values.config.natsUrl | quote }}
+            - name: KEYCLOAK_URL
+              value: {{ .Values.config.keycloak.url | quote }}
+            - name: KEYCLOAK_REALM
+              value: {{ .Values.config.keycloak.realm | quote }}
+            - name: KEYCLOAK_CLIENT_ID
+              value: {{ .Values.config.keycloak.clientId | quote }}
+            - name: KEYCLOAK_ENABLED
+              value: {{ .Values.config.keycloak.enabled | quote }}
+            {{- if .Values.secrets.databaseSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.databaseSecret }}
+                  key: {{ .Values.secrets.databaseSecretKey }}
+            {{- else if .Values.config.databaseUrl }}
+            - name: DATABASE_URL
+              value: {{ .Values.config.databaseUrl | quote }}
+            {{- end }}
+            {{- if .Values.config.blockchain.enabled }}
+            - name: BLOCKCHAIN_ENABLED
+              value: "true"
+            - name: BLOCKCHAIN_RPC_URL
+              value: {{ .Values.config.blockchain.rpcUrl | quote }}
+            - name: BLOCKCHAIN_CHAIN_ID
+              value: {{ .Values.config.blockchain.chainId | quote }}
+            - name: CONTRACT_SETTLEMENT_ADDRESS
+              value: {{ .Values.config.blockchain.contracts.settlement | quote }}
+            - name: CONTRACT_ESCROW_ADDRESS
+              value: {{ .Values.config.blockchain.contracts.escrow | quote }}
+            - name: CONTRACT_DISTRIBUTOR_ADDRESS
+              value: {{ .Values.config.blockchain.contracts.distributor | quote }}
+            - name: CONTRACT_USDC_ADDRESS
+              value: {{ .Values.config.blockchain.contracts.usdc | quote }}
+            {{- if .Values.secrets.blockchainSecret }}
+            - name: BLOCKCHAIN_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.blockchainSecret }}
+                  key: {{ .Values.secrets.blockchainPrivateKeyKey }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.meteringBilling.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.meteringBilling.resources | nindent 12 }}
+      {{- with .Values.meteringBilling.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.meteringBilling.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.meteringBilling.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
