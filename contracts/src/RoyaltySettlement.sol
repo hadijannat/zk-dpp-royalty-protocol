@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IRoyaltySettlement} from "./interfaces/IRoyaltySettlement.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IRoyaltySettlement } from "./interfaces/IRoyaltySettlement.sol";
 
 /**
  * @title RoyaltySettlement
@@ -54,10 +54,7 @@ contract RoyaltySettlement is IRoyaltySettlement, Ownable, Pausable, ReentrancyG
     error NothingToClaim();
     error InvalidDisputeWindow();
 
-    constructor(
-        address _paymentToken,
-        address _initialOwner
-    ) Ownable(_initialOwner) {
+    constructor(address _paymentToken, address _initialOwner) Ownable(_initialOwner) {
         paymentToken = IERC20(_paymentToken);
         disputeWindow = DEFAULT_DISPUTE_WINDOW;
     }
@@ -69,12 +66,11 @@ contract RoyaltySettlement is IRoyaltySettlement, Ownable, Pausable, ReentrancyG
      * @param totalAmount Total amount owed to the supplier (in USDC, 6 decimals)
      * @param statementHash Keccak256 hash of the off-chain statement JSON
      */
-    function submitStatement(
-        bytes32 statementId,
-        address supplier,
-        uint256 totalAmount,
-        bytes32 statementHash
-    ) external onlyOwner whenNotPaused {
+    function submitStatement(bytes32 statementId, address supplier, uint256 totalAmount, bytes32 statementHash)
+        external
+        onlyOwner
+        whenNotPaused
+    {
         if (statements[statementId].status != StatementStatus.None) {
             revert StatementAlreadyExists(statementId);
         }
@@ -135,10 +131,7 @@ contract RoyaltySettlement is IRoyaltySettlement, Ownable, Pausable, ReentrancyG
      * @param statementId The statement ID to dispute
      * @param reason Human-readable reason for the dispute
      */
-    function disputeStatement(
-        bytes32 statementId,
-        string calldata reason
-    ) external whenNotPaused {
+    function disputeStatement(bytes32 statementId, string calldata reason) external whenNotPaused {
         Statement storage statement = statements[statementId];
 
         if (statement.status == StatementStatus.None) {
@@ -260,11 +253,7 @@ contract RoyaltySettlement is IRoyaltySettlement, Ownable, Pausable, ReentrancyG
      * @param to Recipient address
      * @param amount Amount to withdraw
      */
-    function emergencyWithdraw(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function emergencyWithdraw(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 }

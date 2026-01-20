@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {RoyaltySettlement} from "../src/RoyaltySettlement.sol";
-import {VerificationEscrow} from "../src/VerificationEscrow.sol";
-import {PaymentDistributor} from "../src/PaymentDistributor.sol";
-import {IRoyaltySettlement} from "../src/interfaces/IRoyaltySettlement.sol";
-import {MockUSDC} from "../src/mocks/MockUSDC.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { RoyaltySettlement } from "../src/RoyaltySettlement.sol";
+import { VerificationEscrow } from "../src/VerificationEscrow.sol";
+import { PaymentDistributor } from "../src/PaymentDistributor.sol";
+import { IRoyaltySettlement } from "../src/interfaces/IRoyaltySettlement.sol";
+import { MockUSDC } from "../src/mocks/MockUSDC.sol";
 
 /**
  * @title IntegrationTest
@@ -27,7 +27,7 @@ contract IntegrationTest is Test {
 
     // Test amounts (USDC has 6 decimals)
     uint256 public constant BRAND_DEPOSIT = 100_000 * 1e6; // 100,000 USDC
-    uint256 public constant VERIFICATION_FEE = 5 * 1e4;    // 0.05 USDC per verification
+    uint256 public constant VERIFICATION_FEE = 5 * 1e4; // 0.05 USDC per verification
 
     function setUp() public {
         // Deploy mock USDC
@@ -91,11 +91,7 @@ contract IntegrationTest is Test {
 
         // 4. Create settlement statement
         bytes32 statementId = keccak256("statement-jan-2024-supplier");
-        bytes32 statementHash = keccak256(abi.encodePacked(
-            supplier,
-            totalFees,
-            block.timestamp
-        ));
+        bytes32 statementHash = keccak256(abi.encodePacked(supplier, totalFees, block.timestamp));
 
         vm.prank(owner);
         settlement.submitStatement(statementId, supplier, totalFees, statementHash);
@@ -223,7 +219,8 @@ contract IntegrationTest is Test {
         usdc.approve(address(distributor), paymentAmount);
 
         // Calculate expected amounts
-        (uint256 expectedSupplier, uint256 expectedProtocol, uint256 expectedGateway) = distributor.calculateFees(paymentAmount);
+        (uint256 expectedSupplier, uint256 expectedProtocol, uint256 expectedGateway) =
+            distributor.calculateFees(paymentAmount);
 
         // Distribute payment
         vm.prank(payer);

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IVerificationEscrow} from "./interfaces/IVerificationEscrow.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IVerificationEscrow } from "./interfaces/IVerificationEscrow.sol";
 
 /**
  * @title VerificationEscrow
@@ -49,10 +49,7 @@ contract VerificationEscrow is IVerificationEscrow, Ownable, Pausable, Reentranc
     error SettlementContractNotSet();
     error InsufficientPendingAmount(address supplier, uint256 available, uint256 required);
 
-    constructor(
-        address _paymentToken,
-        address _initialOwner
-    ) Ownable(_initialOwner) {
+    constructor(address _paymentToken, address _initialOwner) Ownable(_initialOwner) {
         paymentToken = IERC20(_paymentToken);
     }
 
@@ -89,12 +86,11 @@ contract VerificationEscrow is IVerificationEscrow, Ownable, Pausable, Reentranc
      * @param amount The verification fee amount
      * @param receiptId The verification receipt ID (for deduplication)
      */
-    function recordVerification(
-        address brand,
-        address supplier,
-        uint256 amount,
-        bytes32 receiptId
-    ) external onlyOwner whenNotPaused {
+    function recordVerification(address brand, address supplier, uint256 amount, bytes32 receiptId)
+        external
+        onlyOwner
+        whenNotPaused
+    {
         if (brand == address(0) || supplier == address(0)) {
             revert InvalidAddress();
         }
@@ -126,10 +122,7 @@ contract VerificationEscrow is IVerificationEscrow, Ownable, Pausable, Reentranc
      * @param supplier The supplier to transfer funds for
      * @param amount The amount to transfer
      */
-    function transferToSettlement(
-        address supplier,
-        uint256 amount
-    ) external whenNotPaused {
+    function transferToSettlement(address supplier, uint256 amount) external whenNotPaused {
         if (settlementContract == address(0)) {
             revert SettlementContractNotSet();
         }
@@ -190,10 +183,7 @@ contract VerificationEscrow is IVerificationEscrow, Ownable, Pausable, Reentranc
      * @param supplier The supplier address
      * @return The pending amount
      */
-    function getPendingAmount(
-        address brand,
-        address supplier
-    ) external view returns (uint256) {
+    function getPendingAmount(address brand, address supplier) external view returns (uint256) {
         return pendingRecords[brand][supplier];
     }
 
@@ -237,11 +227,7 @@ contract VerificationEscrow is IVerificationEscrow, Ownable, Pausable, Reentranc
      * @param to Recipient address
      * @param amount Amount to withdraw
      */
-    function emergencyWithdraw(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function emergencyWithdraw(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 }

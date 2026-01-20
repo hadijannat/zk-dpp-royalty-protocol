@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {VerificationEscrow} from "../src/VerificationEscrow.sol";
-import {RoyaltySettlement} from "../src/RoyaltySettlement.sol";
-import {MockUSDC} from "../src/mocks/MockUSDC.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { VerificationEscrow } from "../src/VerificationEscrow.sol";
+import { RoyaltySettlement } from "../src/RoyaltySettlement.sol";
+import { MockUSDC } from "../src/mocks/MockUSDC.sol";
 
 contract VerificationEscrowTest is Test {
     VerificationEscrow public escrow;
@@ -22,12 +22,7 @@ contract VerificationEscrowTest is Test {
     uint256 public constant VERIFICATION_FEE = 5 * 1e4; // 0.05 USDC (5 cents)
 
     event Deposited(address indexed brand, uint256 amount);
-    event VerificationRecorded(
-        address indexed brand,
-        address indexed supplier,
-        uint256 amount,
-        bytes32 receiptId
-    );
+    event VerificationRecorded(address indexed brand, address indexed supplier, uint256 amount, bytes32 receiptId);
     event TransferredToSettlement(address indexed supplier, uint256 amount);
     event Withdrawn(address indexed brand, uint256 amount);
 
@@ -114,9 +109,7 @@ contract VerificationEscrowTest is Test {
         escrow.recordVerification(brand, supplier, VERIFICATION_FEE, RECEIPT_ID);
 
         bytes32 duplicateReceipt = RECEIPT_ID;
-        vm.expectRevert(
-            abi.encodeWithSelector(VerificationEscrow.ReceiptAlreadyRecorded.selector, duplicateReceipt)
-        );
+        vm.expectRevert(abi.encodeWithSelector(VerificationEscrow.ReceiptAlreadyRecorded.selector, duplicateReceipt));
         escrow.recordVerification(brand, supplier, VERIFICATION_FEE, duplicateReceipt);
         vm.stopPrank();
     }
@@ -128,10 +121,7 @@ contract VerificationEscrowTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                VerificationEscrow.InsufficientBalance.selector,
-                brand,
-                VERIFICATION_FEE - 1,
-                VERIFICATION_FEE
+                VerificationEscrow.InsufficientBalance.selector, brand, VERIFICATION_FEE - 1, VERIFICATION_FEE
             )
         );
         escrow.recordVerification(brand, supplier, VERIFICATION_FEE, RECEIPT_ID);
@@ -195,10 +185,7 @@ contract VerificationEscrowTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                VerificationEscrow.InsufficientPendingAmount.selector,
-                supplier,
-                VERIFICATION_FEE,
-                VERIFICATION_FEE * 2
+                VerificationEscrow.InsufficientPendingAmount.selector, supplier, VERIFICATION_FEE, VERIFICATION_FEE * 2
             )
         );
         escrow.transferToSettlement(supplier, VERIFICATION_FEE * 2);
@@ -229,10 +216,7 @@ contract VerificationEscrowTest is Test {
         vm.prank(brand);
         vm.expectRevert(
             abi.encodeWithSelector(
-                VerificationEscrow.InsufficientBalance.selector,
-                brand,
-                DEPOSIT_AMOUNT,
-                DEPOSIT_AMOUNT + 1
+                VerificationEscrow.InsufficientBalance.selector, brand, DEPOSIT_AMOUNT, DEPOSIT_AMOUNT + 1
             )
         );
         escrow.withdraw(DEPOSIT_AMOUNT + 1);

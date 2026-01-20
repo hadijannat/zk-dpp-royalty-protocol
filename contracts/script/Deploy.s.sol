@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Script, console2} from "forge-std/Script.sol";
-import {RoyaltySettlement} from "../src/RoyaltySettlement.sol";
-import {VerificationEscrow} from "../src/VerificationEscrow.sol";
-import {PaymentDistributor} from "../src/PaymentDistributor.sol";
-import {MockUSDC} from "../src/mocks/MockUSDC.sol";
+import { Script, console2 } from "forge-std/Script.sol";
+import { RoyaltySettlement } from "../src/RoyaltySettlement.sol";
+import { VerificationEscrow } from "../src/VerificationEscrow.sol";
+import { PaymentDistributor } from "../src/PaymentDistributor.sol";
+import { MockUSDC } from "../src/mocks/MockUSDC.sol";
 
 /**
  * @title Deploy

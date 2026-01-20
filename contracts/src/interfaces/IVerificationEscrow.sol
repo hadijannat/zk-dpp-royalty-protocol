@@ -8,12 +8,7 @@ pragma solidity ^0.8.20;
  */
 interface IVerificationEscrow {
     event Deposited(address indexed brand, uint256 amount);
-    event VerificationRecorded(
-        address indexed brand,
-        address indexed supplier,
-        uint256 amount,
-        bytes32 receiptId
-    );
+    event VerificationRecorded(address indexed brand, address indexed supplier, uint256 amount, bytes32 receiptId);
     event TransferredToSettlement(address indexed supplier, uint256 amount);
     event Withdrawn(address indexed brand, uint256 amount);
 
@@ -30,12 +25,7 @@ interface IVerificationEscrow {
      * @param amount The verification fee amount
      * @param receiptId The verification receipt ID
      */
-    function recordVerification(
-        address brand,
-        address supplier,
-        uint256 amount,
-        bytes32 receiptId
-    ) external;
+    function recordVerification(address brand, address supplier, uint256 amount, bytes32 receiptId) external;
 
     /**
      * @notice Transfer accumulated funds to settlement contract

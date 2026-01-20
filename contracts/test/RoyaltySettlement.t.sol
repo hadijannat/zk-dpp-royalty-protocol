@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {RoyaltySettlement} from "../src/RoyaltySettlement.sol";
-import {IRoyaltySettlement} from "../src/interfaces/IRoyaltySettlement.sol";
-import {MockUSDC} from "../src/mocks/MockUSDC.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { RoyaltySettlement } from "../src/RoyaltySettlement.sol";
+import { IRoyaltySettlement } from "../src/interfaces/IRoyaltySettlement.sol";
+import { MockUSDC } from "../src/mocks/MockUSDC.sol";
 
 contract RoyaltySettlementTest is Test {
     RoyaltySettlement public settlement;
@@ -19,24 +19,11 @@ contract RoyaltySettlementTest is Test {
     bytes32 public constant STATEMENT_HASH = keccak256("off-chain-data");
     uint256 public constant AMOUNT = 1000 * 1e6; // 1000 USDC
 
-    event StatementSubmitted(
-        bytes32 indexed statementId,
-        address indexed supplier,
-        uint256 totalAmount,
-        bytes32 statementHash
-    );
+    event StatementSubmitted(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount, bytes32 statementHash);
 
-    event StatementFinalized(
-        bytes32 indexed statementId,
-        address indexed supplier,
-        uint256 totalAmount
-    );
+    event StatementFinalized(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount);
 
-    event StatementDisputed(
-        bytes32 indexed statementId,
-        address indexed supplier,
-        string reason
-    );
+    event StatementDisputed(bytes32 indexed statementId, address indexed supplier, string reason);
 
     event PaymentClaimed(address indexed supplier, uint256 amount);
 
@@ -74,9 +61,7 @@ contract RoyaltySettlementTest is Test {
         vm.startPrank(owner);
         settlement.submitStatement(STATEMENT_ID, supplier, AMOUNT, STATEMENT_HASH);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(RoyaltySettlement.StatementAlreadyExists.selector, STATEMENT_ID)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RoyaltySettlement.StatementAlreadyExists.selector, STATEMENT_ID));
         settlement.submitStatement(STATEMENT_ID, supplier, AMOUNT, STATEMENT_HASH);
         vm.stopPrank();
     }
@@ -130,9 +115,7 @@ contract RoyaltySettlementTest is Test {
     function test_finalizeStatement_revert_notFound() public {
         bytes32 unknownId = keccak256("unknown");
         vm.prank(anyone);
-        vm.expectRevert(
-            abi.encodeWithSelector(RoyaltySettlement.StatementNotFound.selector, unknownId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RoyaltySettlement.StatementNotFound.selector, unknownId));
         settlement.finalizeStatement(unknownId);
     }
 
@@ -143,9 +126,7 @@ contract RoyaltySettlementTest is Test {
         vm.warp(block.timestamp + 25 hours);
         settlement.finalizeStatement(STATEMENT_ID);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(RoyaltySettlement.StatementAlreadyFinalized.selector, STATEMENT_ID)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RoyaltySettlement.StatementAlreadyFinalized.selector, STATEMENT_ID));
         settlement.finalizeStatement(STATEMENT_ID);
     }
 
@@ -170,9 +151,7 @@ contract RoyaltySettlementTest is Test {
         settlement.submitStatement(STATEMENT_ID, supplier, AMOUNT, STATEMENT_HASH);
 
         vm.prank(anyone);
-        vm.expectRevert(
-            abi.encodeWithSelector(RoyaltySettlement.NotSupplier.selector, STATEMENT_ID, anyone)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RoyaltySettlement.NotSupplier.selector, STATEMENT_ID, anyone));
         settlement.disputeStatement(STATEMENT_ID, "Incorrect amount");
     }
 
@@ -183,9 +162,7 @@ contract RoyaltySettlementTest is Test {
         vm.warp(block.timestamp + 25 hours);
 
         vm.prank(supplier);
-        vm.expectRevert(
-            abi.encodeWithSelector(RoyaltySettlement.DisputeWindowPassed.selector, STATEMENT_ID)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RoyaltySettlement.DisputeWindowPassed.selector, STATEMENT_ID));
         settlement.disputeStatement(STATEMENT_ID, "Incorrect amount");
     }
 
@@ -315,11 +292,7 @@ contract RoyaltySettlementTest is Test {
 
     // ============ Fuzz Tests ============
 
-    function testFuzz_submitStatement(
-        bytes32 statementId,
-        address _supplier,
-        uint256 _amount
-    ) public {
+    function testFuzz_submitStatement(bytes32 statementId, address _supplier, uint256 _amount) public {
         vm.assume(_supplier != address(0));
         vm.assume(_amount > 0);
         vm.assume(_amount < type(uint128).max); // Reasonable bounds

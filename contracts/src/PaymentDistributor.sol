@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IPaymentDistributor} from "./interfaces/IPaymentDistributor.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IPaymentDistributor } from "./interfaces/IPaymentDistributor.sol";
 
 /**
  * @title PaymentDistributor
@@ -61,11 +61,7 @@ contract PaymentDistributor is IPaymentDistributor, Ownable, Pausable, Reentranc
     event ProtocolFeesClaimed(address indexed to, uint256 amount);
     event GatewayFeesClaimed(address indexed gateway, uint256 amount);
 
-    constructor(
-        address _paymentToken,
-        address _protocolTreasury,
-        address _initialOwner
-    ) Ownable(_initialOwner) {
+    constructor(address _paymentToken, address _protocolTreasury, address _initialOwner) Ownable(_initialOwner) {
         if (_protocolTreasury == address(0)) {
             revert InvalidAddress();
         }
@@ -82,11 +78,7 @@ contract PaymentDistributor is IPaymentDistributor, Ownable, Pausable, Reentranc
      * @param totalAmount The total amount to distribute
      * @param gateway The gateway operator receiving gateway fees
      */
-    function distribute(
-        address supplier,
-        uint256 totalAmount,
-        address gateway
-    ) external nonReentrant whenNotPaused {
+    function distribute(address supplier, uint256 totalAmount, address gateway) external nonReentrant whenNotPaused {
         if (supplier == address(0)) {
             revert InvalidAddress();
         }
@@ -122,10 +114,7 @@ contract PaymentDistributor is IPaymentDistributor, Ownable, Pausable, Reentranc
      * @param _protocolFeeBps New protocol fee in basis points
      * @param _gatewayFeeBps New gateway fee in basis points
      */
-    function setFees(
-        uint256 _protocolFeeBps,
-        uint256 _gatewayFeeBps
-    ) external onlyOwner {
+    function setFees(uint256 _protocolFeeBps, uint256 _gatewayFeeBps) external onlyOwner {
         uint256 combined = _protocolFeeBps + _gatewayFeeBps;
         if (combined > MAX_TOTAL_FEE_BPS) {
             revert FeesTooHigh(combined, MAX_TOTAL_FEE_BPS);
@@ -198,11 +187,11 @@ contract PaymentDistributor is IPaymentDistributor, Ownable, Pausable, Reentranc
      * @return protocolFee Amount going to protocol
      * @return gatewayFee Amount going to gateway
      */
-    function calculateFees(uint256 totalAmount) public view returns (
-        uint256 supplierAmount,
-        uint256 protocolFee,
-        uint256 gatewayFee
-    ) {
+    function calculateFees(uint256 totalAmount)
+        public
+        view
+        returns (uint256 supplierAmount, uint256 protocolFee, uint256 gatewayFee)
+    {
         protocolFee = (totalAmount * protocolFeeBps) / BPS_DENOMINATOR;
         gatewayFee = (totalAmount * gatewayFeeBps) / BPS_DENOMINATOR;
         supplierAmount = totalAmount - protocolFee - gatewayFee;
@@ -247,11 +236,7 @@ contract PaymentDistributor is IPaymentDistributor, Ownable, Pausable, Reentranc
      * @param to Recipient address
      * @param amount Amount to withdraw
      */
-    function emergencyWithdraw(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function emergencyWithdraw(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 }

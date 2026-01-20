@@ -23,11 +23,7 @@ interface IPaymentDistributor {
      * @param totalAmount The total amount to distribute
      * @param gateway The gateway operator address
      */
-    function distribute(
-        address supplier,
-        uint256 totalAmount,
-        address gateway
-    ) external;
+    function distribute(address supplier, uint256 totalAmount, address gateway) external;
 
     /**
      * @notice Set fee percentages (owner only)
@@ -50,9 +46,8 @@ interface IPaymentDistributor {
      * @return protocolFee Amount going to protocol
      * @return gatewayFee Amount going to gateway
      */
-    function calculateFees(uint256 totalAmount) external view returns (
-        uint256 supplierAmount,
-        uint256 protocolFee,
-        uint256 gatewayFee
-    );
+    function calculateFees(uint256 totalAmount)
+        external
+        view
+        returns (uint256 supplierAmount, uint256 protocolFee, uint256 gatewayFee);
 }

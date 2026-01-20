@@ -24,29 +24,13 @@ interface IRoyaltySettlement {
         StatementStatus status;
     }
 
-    event StatementSubmitted(
-        bytes32 indexed statementId,
-        address indexed supplier,
-        uint256 totalAmount,
-        bytes32 statementHash
-    );
+    event StatementSubmitted(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount, bytes32 statementHash);
 
-    event StatementFinalized(
-        bytes32 indexed statementId,
-        address indexed supplier,
-        uint256 totalAmount
-    );
+    event StatementFinalized(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount);
 
-    event StatementDisputed(
-        bytes32 indexed statementId,
-        address indexed supplier,
-        string reason
-    );
+    event StatementDisputed(bytes32 indexed statementId, address indexed supplier, string reason);
 
-    event PaymentClaimed(
-        address indexed supplier,
-        uint256 amount
-    );
+    event PaymentClaimed(address indexed supplier, uint256 amount);
 
     /**
      * @notice Submit a new settlement statement (owner only)
@@ -55,12 +39,8 @@ interface IRoyaltySettlement {
      * @param totalAmount Total amount owed to the supplier
      * @param statementHash Hash of the off-chain statement data
      */
-    function submitStatement(
-        bytes32 statementId,
-        address supplier,
-        uint256 totalAmount,
-        bytes32 statementHash
-    ) external;
+    function submitStatement(bytes32 statementId, address supplier, uint256 totalAmount, bytes32 statementHash)
+        external;
 
     /**
      * @notice Finalize a statement after the dispute window

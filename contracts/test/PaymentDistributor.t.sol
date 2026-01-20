@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {PaymentDistributor} from "../src/PaymentDistributor.sol";
-import {MockUSDC} from "../src/mocks/MockUSDC.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { PaymentDistributor } from "../src/PaymentDistributor.sol";
+import { MockUSDC } from "../src/mocks/MockUSDC.sol";
 
 contract PaymentDistributorTest is Test {
     PaymentDistributor public distributor;
@@ -17,7 +17,7 @@ contract PaymentDistributorTest is Test {
 
     uint256 public constant AMOUNT = 10_000 * 1e6; // 10,000 USDC
     uint256 public constant DEFAULT_PROTOCOL_FEE = 200; // 2%
-    uint256 public constant DEFAULT_GATEWAY_FEE = 50;   // 0.5%
+    uint256 public constant DEFAULT_GATEWAY_FEE = 50; // 0.5%
 
     event PaymentDistributed(
         address indexed supplier,
@@ -67,7 +67,8 @@ contract PaymentDistributorTest is Test {
     // ============ Distribute Tests ============
 
     function test_distribute_success() public {
-        (uint256 expectedSupplier, uint256 expectedProtocol, uint256 expectedGateway) = distributor.calculateFees(AMOUNT);
+        (uint256 expectedSupplier, uint256 expectedProtocol, uint256 expectedGateway) =
+            distributor.calculateFees(AMOUNT);
 
         vm.prank(payer);
         vm.expectEmit(true, true, false, true);
@@ -83,7 +84,8 @@ contract PaymentDistributorTest is Test {
     }
 
     function test_distribute_noGateway() public {
-        (uint256 expectedSupplier, uint256 expectedProtocol, uint256 expectedGateway) = distributor.calculateFees(AMOUNT);
+        (uint256 expectedSupplier, uint256 expectedProtocol, uint256 expectedGateway) =
+            distributor.calculateFees(AMOUNT);
 
         vm.prank(payer);
         distributor.distribute(supplier, AMOUNT, address(0));
@@ -158,7 +160,7 @@ contract PaymentDistributorTest is Test {
 
     function test_setFees_success() public {
         uint256 newProtocol = 300; // 3%
-        uint256 newGateway = 100;  // 1%
+        uint256 newGateway = 100; // 1%
 
         vm.prank(owner);
         vm.expectEmit(true, true, false, false);
@@ -172,9 +174,7 @@ contract PaymentDistributorTest is Test {
 
     function test_setFees_revert_tooHigh() public {
         vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(PaymentDistributor.FeesTooHigh.selector, 1100, 1000)
-        );
+        vm.expectRevert(abi.encodeWithSelector(PaymentDistributor.FeesTooHigh.selector, 1100, 1000));
         distributor.setFees(600, 500); // 11% total
     }
 
@@ -241,7 +241,7 @@ contract PaymentDistributorTest is Test {
         usdc.mint(payer, amount);
 
         uint256 supplierBalanceBefore = usdc.balanceOf(supplier);
-        (uint256 expectedSupplier, , ) = distributor.calculateFees(amount);
+        (uint256 expectedSupplier,,) = distributor.calculateFees(amount);
 
         vm.prank(payer);
         distributor.distribute(supplier, amount, gateway);
