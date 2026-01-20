@@ -118,10 +118,7 @@ pub struct VerificationResult {
 ///
 /// This is the main entry point for proof verification.
 /// In production, this will use Noir's verification library.
-pub fn verify_proof(
-    package: &ProofPackage,
-    vkey: &VerificationKey,
-) -> Result<VerificationResult> {
+pub fn verify_proof(package: &ProofPackage, vkey: &VerificationKey) -> Result<VerificationResult> {
     // Validate predicate IDs match
     if package.predicate_id != vkey.predicate_id {
         return Err(ZkpError::VerificationKeyNotFound(
@@ -189,28 +186,28 @@ pub fn validate_proof_package(package: &ProofPackage) -> Result<()> {
 // WASM bindings for use in TypeScript services
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn verify_proof_wasm(package_json: &str, vkey_json: &str) -> std::result::Result<String, JsValue> {
-    let package: ProofPackage = serde_json::from_str(package_json)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+pub fn verify_proof_wasm(
+    package_json: &str,
+    vkey_json: &str,
+) -> std::result::Result<String, JsValue> {
+    let package: ProofPackage =
+        serde_json::from_str(package_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let vkey: VerificationKey = serde_json::from_str(vkey_json)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let vkey: VerificationKey =
+        serde_json::from_str(vkey_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let result = verify_proof(&package, &vkey)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let result = verify_proof(&package, &vkey).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+    serde_json::to_string(&result).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn validate_proof_package_wasm(package_json: &str) -> std::result::Result<bool, JsValue> {
-    let package: ProofPackage = serde_json::from_str(package_json)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let package: ProofPackage =
+        serde_json::from_str(package_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    validate_proof_package(&package)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    validate_proof_package(&package).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     Ok(true)
 }

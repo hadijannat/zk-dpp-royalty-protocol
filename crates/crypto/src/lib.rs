@@ -2,9 +2,7 @@
 //!
 //! Provides Ed25519 key generation, signing, and verification.
 
-use ed25519_dalek::{
-    Signature, Signer, SigningKey, Verifier, VerifyingKey, SECRET_KEY_LENGTH,
-};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey, SECRET_KEY_LENGTH};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -141,8 +139,8 @@ impl PublicKey {
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&key_bytes);
 
-        let verifying_key = VerifyingKey::from_bytes(&arr)
-            .map_err(|e| CryptoError::KeyParsing(e.to_string()))?;
+        let verifying_key =
+            VerifyingKey::from_bytes(&arr).map_err(|e| CryptoError::KeyParsing(e.to_string()))?;
 
         let sig = Signature::from_bytes(signature);
 

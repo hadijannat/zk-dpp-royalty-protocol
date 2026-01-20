@@ -3,8 +3,8 @@
 //! Provides Merkle tree construction, claim hashing, and proof verification
 //! for the zero-knowledge data passport protocol.
 
-use serde::{Deserialize, Serialize};
 use blake3::Hasher;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod merkle;

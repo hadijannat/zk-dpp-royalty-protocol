@@ -502,9 +502,11 @@ export class ZKDPPContractClient {
     return this.signer;
   }
 
-  private requireSigner(): asserts this is { signer: Signer } {
-    if (!this.signer) {
+  private requireSigner(): Signer {
+    const signer = this.signer;
+    if (!signer) {
       throw new Error('Signer required for write operations. Call connect() first.');
     }
+    return signer;
   }
 }
