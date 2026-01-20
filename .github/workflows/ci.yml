@@ -19,7 +19,9 @@ jobs:
           cache: 'pnpm'
 
       - name: Enable Corepack
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@8.15.1 --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
