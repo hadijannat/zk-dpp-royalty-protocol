@@ -1,0 +1,182 @@
+# Production environment configuration
+# This file overrides values.yaml for production deployments
+
+global:
+  imageRegistry: "ghcr.io"
+  imagePullSecrets:
+    - ghcr-pull-secret
+
+# Verify Gateway Service - Production
+verifyGateway:
+  replicaCount: 3
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  env:
+    LOG_LEVEL: "info"
+    NODE_ENV: "production"
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsGroup: 1001
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# DPP Builder Service - Production
+dppBuilder:
+  replicaCount: 3
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  env:
+    LOG_LEVEL: "info"
+    NODE_ENV: "production"
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsGroup: 1001
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Metering & Billing Service - Production
+meteringBilling:
+  replicaCount: 2
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  env:
+    LOG_LEVEL: "info"
+    NODE_ENV: "production"
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsGroup: 1001
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+# Shared configuration
+config:
+  natsUrl: "nats://zkdpp-nats:4222"
+  keycloak:
+    url: "http://zkdpp-keycloak:80"
+    realm: "zkdpp"
+    clientId: "zkdpp-api"
+    enabled: true
+  blockchain:
+    enabled: true
+    rpcUrl: "https://mainnet.base.org"
+    chainId: 8453  # Base mainnet
+
+# Ingress configuration for production
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  hosts:
+    - host: api.zkdpp.example.com
+      paths:
+        - path: /verify
+          pathType: Prefix
+          backend:
+            service: verify-gateway
+        - path: /predicates
+          pathType: Prefix
+          backend:
+            service: verify-gateway
+        - path: /products
+          pathType: Prefix
+          backend:
+            service: dpp-builder
+        - path: /dpp
+          pathType: Prefix
+          backend:
+            service: dpp-builder
+        - path: /usage
+          pathType: Prefix
+          backend:
+            service: metering-billing
+        - path: /settlements
+          pathType: Prefix
+          backend:
+            service: metering-billing
+        - path: /supplier-wallets
+          pathType: Prefix
+          backend:
+            service: metering-billing
+  tls:
+    - secretName: zkdpp-production-tls
+      hosts:
+        - api.zkdpp.example.com
+
+# Pod disruption budget for high availability
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Service monitors for Prometheus
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  path: /metrics
+
+# Network policies for security
+networkPolicy:
+  enabled: true
+
+# Dependencies - typically use managed services in production
+postgresql:
+  enabled: false  # Use managed PostgreSQL (RDS, Cloud SQL, etc.)
+
+nats:
+  enabled: false  # Use managed NATS or external cluster

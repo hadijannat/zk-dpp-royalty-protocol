@@ -2,9 +2,12 @@
 # This is a YAML-formatted file.
 
 global:
+  # Container registry (e.g., ghcr.io/your-org/zkdpp)
   imageRegistry: ""
   imagePullSecrets: []
   storageClass: ""
+  # Environment name (development, staging, production)
+  environment: "development"
 
 # Verify Gateway Service
 verifyGateway:
@@ -12,7 +15,8 @@ verifyGateway:
   replicaCount: 1
 
   image:
-    repository: zkdpp-verify-gateway
+    # Repository name (combined with global.imageRegistry)
+    repository: verify-gateway
     tag: "latest"
     pullPolicy: IfNotPresent
 
@@ -55,7 +59,8 @@ dppBuilder:
   replicaCount: 1
 
   image:
-    repository: zkdpp-dpp-builder
+    # Repository name (combined with global.imageRegistry)
+    repository: dpp-builder
     tag: "latest"
     pullPolicy: IfNotPresent
 
@@ -97,7 +102,8 @@ meteringBilling:
   replicaCount: 1
 
   image:
-    repository: zkdpp-metering-billing
+    # Repository name (combined with global.imageRegistry)
+    repository: metering-billing
     tag: "latest"
     pullPolicy: IfNotPresent
 

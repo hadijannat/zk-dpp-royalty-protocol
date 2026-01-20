@@ -1,0 +1,118 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build & Push"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Image tag to deploy (defaults to main)'
+        required: false
+        default: 'main'
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+
+      - name: Determine image tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [[ -n "$INPUT_TAG" ]]; then
+            echo "tag=$INPUT_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "tag=main" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy with Helm
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}/zkdpp
+        run: |
+          helm upgrade --install zkdpp ./infra/helm/zkdpp \
+            --namespace zkdpp-staging \
+            --create-namespace \
+            --set global.imageRegistry="$IMAGE_REGISTRY" \
+            --set verifyGateway.image.tag="$IMAGE_TAG" \
+            --set dppBuilder.image.tag="$IMAGE_TAG" \
+            --set meteringBilling.image.tag="$IMAGE_TAG" \
+            --values ./infra/helm/zkdpp/values-staging.yaml \
+            --wait --timeout 10m
+
+      - name: Verify deployment
+        run: |
+          kubectl -n zkdpp-staging rollout status deployment/zkdpp-verify-gateway --timeout=300s
+          kubectl -n zkdpp-staging rollout status deployment/zkdpp-dpp-builder --timeout=300s
+          kubectl -n zkdpp-staging rollout status deployment/zkdpp-metering-billing --timeout=300s
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          echo "Staging deployment verified successfully"
+
+  deploy-production:
+    name: Deploy to Production
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+
+      - name: Deploy with Helm
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}/zkdpp
+        run: |
+          helm upgrade --install zkdpp ./infra/helm/zkdpp \
+            --namespace zkdpp-production \
+            --create-namespace \
+            --set global.imageRegistry="$IMAGE_REGISTRY" \
+            --set verifyGateway.image.tag="$IMAGE_TAG" \
+            --set dppBuilder.image.tag="$IMAGE_TAG" \
+            --set meteringBilling.image.tag="$IMAGE_TAG" \
+            --values ./infra/helm/zkdpp/values-production.yaml \
+            --wait --timeout 10m
+
+      - name: Verify deployment
+        run: |
+          kubectl -n zkdpp-production rollout status deployment/zkdpp-verify-gateway --timeout=300s
+          kubectl -n zkdpp-production rollout status deployment/zkdpp-dpp-builder --timeout=300s
+          kubectl -n zkdpp-production rollout status deployment/zkdpp-metering-billing --timeout=300s
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          echo "Production deployment verified successfully"

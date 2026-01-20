@@ -2,24 +2,26 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-test:
+  lint:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 8.15.1
-          run_install: false
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
@@ -27,17 +29,139 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Lint
+        run: pnpm lint
 
-      - name: Install noirup + nargo
+      - name: Type check
+        run: pnpm typecheck
+
+  test-typescript:
+    name: TypeScript Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: zkdpp
+          POSTGRES_PASSWORD: zkdpp
+          POSTGRES_DB: zkdpp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+        options: --name nats
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build:packages
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          DATABASE_URL: postgres://zkdpp:zkdpp@localhost:5432/zkdpp
+          NATS_URL: nats://localhost:4222
+          NODE_ENV: test
+
+  test-rust:
+    name: Rust Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run tests
+        run: cargo test --workspace
+
+  test-noir:
+    name: Noir Circuit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nargo
         run: |
           curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
-          $HOME/.nargo/bin/noirup
           echo "$HOME/.nargo/bin" >> $GITHUB_PATH
 
-      - name: Rust build
-        run: pnpm rust:build
+      - name: Setup Nargo version
+        run: $HOME/.nargo/bin/noirup --version 0.30.0
 
-      - name: Circuit tests
-        run: pnpm circuits:test
+      - name: Run circuit tests
+        run: |
+          cd circuits/noir
+          find predicates -name 'Nargo.toml' -execdir nargo test \;
+
+  test-contracts:
+    name: Smart Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run contract tests
+        run: cd contracts && forge test -vvv
+
+      - name: Check contract formatting
+        run: cd contracts && forge fmt --check
+
+  # Final check that all jobs passed
+  ci-success:
+    name: CI Success
+    needs: [lint, test-typescript, test-rust, test-noir, test-contracts]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TS_RESULT: ${{ needs.test-typescript.result }}
+          RUST_RESULT: ${{ needs.test-rust.result }}
+          NOIR_RESULT: ${{ needs.test-noir.result }}
+          CONTRACTS_RESULT: ${{ needs.test-contracts.result }}
+        run: |
+          if [[ "$LINT_RESULT" != "success" ]] || \
+             [[ "$TS_RESULT" != "success" ]] || \
+             [[ "$RUST_RESULT" != "success" ]] || \
+             [[ "$NOIR_RESULT" != "success" ]] || \
+             [[ "$CONTRACTS_RESULT" != "success" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All jobs passed!"

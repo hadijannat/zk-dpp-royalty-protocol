@@ -1,0 +1,148 @@
+# Staging environment configuration
+# This file overrides values.yaml for staging deployments
+
+global:
+  imageRegistry: "ghcr.io"
+  imagePullSecrets:
+    - ghcr-pull-secret
+
+# Verify Gateway Service - Staging
+verifyGateway:
+  replicaCount: 2
+  image:
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    LOG_LEVEL: "debug"
+    NODE_ENV: "staging"
+
+# DPP Builder Service - Staging
+dppBuilder:
+  replicaCount: 2
+  image:
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    LOG_LEVEL: "debug"
+    NODE_ENV: "staging"
+
+# Metering & Billing Service - Staging
+meteringBilling:
+  replicaCount: 1
+  image:
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    LOG_LEVEL: "debug"
+    NODE_ENV: "staging"
+
+# Shared configuration
+config:
+  natsUrl: "nats://zkdpp-nats:4222"
+  keycloak:
+    url: "http://zkdpp-keycloak:80"
+    realm: "zkdpp-staging"
+    clientId: "zkdpp-api"
+    enabled: true
+  blockchain:
+    enabled: true
+    rpcUrl: "https://base-sepolia.g.alchemy.com/v2/YOUR_API_KEY"
+    chainId: 84532  # Base Sepolia testnet
+
+# Ingress configuration for staging
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: api-staging.zkdpp.example.com
+      paths:
+        - path: /verify
+          pathType: Prefix
+          backend:
+            service: verify-gateway
+        - path: /predicates
+          pathType: Prefix
+          backend:
+            service: verify-gateway
+        - path: /products
+          pathType: Prefix
+          backend:
+            service: dpp-builder
+        - path: /dpp
+          pathType: Prefix
+          backend:
+            service: dpp-builder
+        - path: /usage
+          pathType: Prefix
+          backend:
+            service: metering-billing
+        - path: /settlements
+          pathType: Prefix
+          backend:
+            service: metering-billing
+        - path: /supplier-wallets
+          pathType: Prefix
+          backend:
+            service: metering-billing
+  tls:
+    - secretName: zkdpp-staging-tls
+      hosts:
+        - api-staging.zkdpp.example.com
+
+# Autoscaling disabled in staging
+verifyGateway:
+  autoscaling:
+    enabled: false
+
+dppBuilder:
+  autoscaling:
+    enabled: false
+
+meteringBilling:
+  autoscaling:
+    enabled: false
+
+# Pod disruption budget disabled in staging
+podDisruptionBudget:
+  enabled: false
+
+# Service monitors for observability
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+
+# Dependencies
+postgresql:
+  enabled: true
+  auth:
+    database: zkdpp_staging
+    username: zkdpp
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+
+nats:
+  enabled: true
