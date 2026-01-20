@@ -12,6 +12,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 # Copy package.json files for all workspaces
 COPY packages/schemas/package.json ./packages/schemas/
 COPY packages/event-bus/package.json ./packages/event-bus/
+COPY packages/predicate-lib/package.json ./packages/predicate-lib/
 COPY packages/shared/package.json ./packages/shared/
 COPY services/dpp-builder/package.json ./services/dpp-builder/
 
@@ -21,12 +22,14 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY packages/schemas/ ./packages/schemas/
 COPY packages/event-bus/ ./packages/event-bus/
+COPY packages/predicate-lib/ ./packages/predicate-lib/
 COPY packages/shared/ ./packages/shared/
 COPY services/dpp-builder/ ./services/dpp-builder/
 
 # Build packages in dependency order
 RUN pnpm --filter @zkdpp/schemas build
 RUN pnpm --filter @zkdpp/event-bus build
+RUN pnpm --filter @zkdpp/predicate-lib build
 RUN pnpm --filter @zkdpp/shared build
 RUN pnpm --filter @zkdpp/dpp-builder build
 
@@ -50,6 +53,10 @@ COPY --from=builder --chown=nodejs:nodejs /app/packages/schemas/dist/ ./packages
 
 COPY --from=builder --chown=nodejs:nodejs /app/packages/event-bus/package.json ./packages/event-bus/
 COPY --from=builder --chown=nodejs:nodejs /app/packages/event-bus/dist/ ./packages/event-bus/dist/
+
+COPY --from=builder --chown=nodejs:nodejs /app/packages/predicate-lib/package.json ./packages/predicate-lib/
+COPY --from=builder --chown=nodejs:nodejs /app/packages/predicate-lib/dist/ ./packages/predicate-lib/dist/
+COPY --from=builder --chown=nodejs:nodejs /app/packages/predicate-lib/predicates.json ./packages/predicate-lib/
 
 COPY --from=builder --chown=nodejs:nodejs /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder --chown=nodejs:nodejs /app/packages/shared/dist/ ./packages/shared/dist/
