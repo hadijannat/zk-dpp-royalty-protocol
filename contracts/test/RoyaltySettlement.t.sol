@@ -19,7 +19,9 @@ contract RoyaltySettlementTest is Test {
     bytes32 public constant STATEMENT_HASH = keccak256("off-chain-data");
     uint256 public constant AMOUNT = 1000 * 1e6; // 1000 USDC
 
-    event StatementSubmitted(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount, bytes32 statementHash);
+    event StatementSubmitted(
+        bytes32 indexed statementId, address indexed supplier, uint256 totalAmount, bytes32 statementHash
+    );
 
     event StatementFinalized(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount);
 

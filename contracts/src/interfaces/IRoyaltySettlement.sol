@@ -24,7 +24,9 @@ interface IRoyaltySettlement {
         StatementStatus status;
     }
 
-    event StatementSubmitted(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount, bytes32 statementHash);
+    event StatementSubmitted(
+        bytes32 indexed statementId, address indexed supplier, uint256 totalAmount, bytes32 statementHash
+    );
 
     event StatementFinalized(bytes32 indexed statementId, address indexed supplier, uint256 totalAmount);
 
@@ -39,8 +41,7 @@ interface IRoyaltySettlement {
      * @param totalAmount Total amount owed to the supplier
      * @param statementHash Hash of the off-chain statement data
      */
-    function submitStatement(bytes32 statementId, address supplier, uint256 totalAmount, bytes32 statementHash)
-        external;
+    function submitStatement(bytes32 statementId, address supplier, uint256 totalAmount, bytes32 statementHash) external;
 
     /**
      * @notice Finalize a statement after the dispute window
