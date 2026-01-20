@@ -48,7 +48,7 @@ contract RoyaltySettlement is IRoyaltySettlement, Ownable, Pausable, ReentrancyG
     error StatementNotSubmitted(bytes32 statementId);
     error DisputeWindowNotPassed(bytes32 statementId, uint256 remainingTime);
     error StatementAlreadyFinalized(bytes32 statementId);
-    error StatementDisputed(bytes32 statementId);
+    error StatementDisputedError(bytes32 statementId);
     error NotSupplier(bytes32 statementId, address caller);
     error DisputeWindowPassed(bytes32 statementId);
     error NothingToClaim();
@@ -112,7 +112,7 @@ contract RoyaltySettlement is IRoyaltySettlement, Ownable, Pausable, ReentrancyG
                 revert StatementAlreadyFinalized(statementId);
             }
             if (statement.status == StatementStatus.Disputed) {
-                revert StatementDisputed(statementId);
+                revert StatementDisputedError(statementId);
             }
         }
 

@@ -52,7 +52,7 @@ impl MerkleTree {
         // Build tree bottom-up
         while nodes.last().unwrap().len() > 1 {
             let current_level = nodes.last().unwrap();
-            let mut next_level = Vec::with_capacity((current_level.len() + 1) / 2);
+            let mut next_level = Vec::with_capacity(current_level.len().div_ceil(2));
 
             for chunk in current_level.chunks(2) {
                 let hash = if chunk.len() == 2 {

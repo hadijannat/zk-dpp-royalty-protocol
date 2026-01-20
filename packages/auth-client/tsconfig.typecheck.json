@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "rootDir": "..",
+    "paths": {
+      "@zkdpp/shared": ["../shared/src/index.ts"],
+      "@zkdpp/shared/*": ["../shared/src/*"]
+    },
+    "rootDirs": ["src", "../shared/src"]
+  }
+}

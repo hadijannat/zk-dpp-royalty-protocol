@@ -140,11 +140,6 @@ pub fn verify_proof(package: &ProofPackage, vkey: &VerificationKey) -> Result<Ve
     // 2. Serialize public inputs to field elements
     // 3. Call noir_verifier::verify(proof, vkey, public_inputs)
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-
     // Until Noir verification is wired, fail closed to avoid false positives.
     Err(ZkpError::VerificationFailed)
 }
