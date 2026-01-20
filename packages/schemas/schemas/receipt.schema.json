@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://zkdpp.io/schemas/receipt.schema.json",
+  "title": "VerificationReceipt",
+  "description": "Signed receipt confirming successful proof verification",
+  "type": "object",
+  "required": ["id", "predicateId", "result", "verifiedAt", "gatewaySignature"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this receipt"
+    },
+    "predicateId": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "result": {
+      "type": "boolean",
+      "description": "Whether the proof verified successfully"
+    },
+    "commitmentRoot": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "The commitment root that was verified against"
+    },
+    "productBinding": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Product binding from the verified proof"
+    },
+    "requesterBinding": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Requester binding from the verified proof"
+    },
+    "supplierId": {
+      "type": "string",
+      "description": "Identifier of the supplier who generated the proof"
+    },
+    "requesterId": {
+      "type": "string",
+      "description": "Identifier of the requester who requested verification"
+    },
+    "nonce": {
+      "type": "string",
+      "description": "Nonce from the original proof package"
+    },
+    "verifiedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the verification was performed"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this receipt expires"
+    },
+    "gatewayId": {
+      "type": "string",
+      "description": "Identifier of the verification gateway"
+    },
+    "gatewaySignature": {
+      "type": "string",
+      "description": "Gateway's signature over the receipt (hex-encoded)"
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if verification failed"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+target/
+*.wasm
+
+# Rust
+Cargo.lock
+*.rs.bk
+
+# Noir/ZK
+circuits/noir/predicates/**/target/
+circuits/noir/predicates/**/proofs/
+*.proof
+*.vkey
+*.crs
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Tauri
+apps/edge-agent/src-tauri/target/
+apps/edge-agent/src-tauri/WixTools/
+apps/edge-agent/src-tauri/dist/
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Temporary
+tmp/
+temp/
+.cache/

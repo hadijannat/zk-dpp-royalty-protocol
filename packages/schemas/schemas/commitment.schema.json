@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://zkdpp.io/schemas/commitment.schema.json",
+  "title": "Commitment",
+  "description": "A cryptographic commitment to a set of claims",
+  "type": "object",
+  "required": ["id", "supplierId", "root", "claimCount", "signature", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this commitment"
+    },
+    "supplierId": {
+      "type": "string",
+      "description": "Supplier who created this commitment"
+    },
+    "root": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Merkle root of all claim hashes (hex-encoded)"
+    },
+    "claimCount": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of claims in this commitment"
+    },
+    "claimIds": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "IDs of claims included in this commitment"
+    },
+    "publicKey": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Supplier's public key used for signing (hex-encoded)"
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{128}$",
+      "description": "Ed25519 signature over the commitment root (hex-encoded)"
+    },
+    "validFrom": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this commitment becomes valid for proofs"
+    },
+    "validUntil": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this commitment expires"
+    },
+    "revoked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this commitment has been revoked"
+    },
+    "revokedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this commitment was revoked"
+    },
+    "revokedReason": {
+      "type": "string",
+      "description": "Reason for revocation"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Additional metadata"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this commitment was created"
+    }
+  }
+}

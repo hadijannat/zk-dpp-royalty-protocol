@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://zkdpp.io/schemas/claim.schema.json",
+  "title": "Claim",
+  "description": "A claim about a product or material, extracted from evidence",
+  "type": "object",
+  "required": ["id", "type", "value", "unit", "productId", "supplierId", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this claim"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "recycled_content",
+        "carbon_footprint",
+        "certification",
+        "substance_content",
+        "origin",
+        "manufacturing_date",
+        "battery_capacity",
+        "battery_chemistry"
+      ],
+      "description": "The type of claim being made"
+    },
+    "value": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "additionalProperties": true
+        }
+      ],
+      "description": "The actual claim value"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unit of measurement (e.g., 'percent', 'kg_co2e', 'date')"
+    },
+    "productId": {
+      "type": "string",
+      "description": "Product or material this claim applies to"
+    },
+    "supplierId": {
+      "type": "string",
+      "description": "Supplier making this claim"
+    },
+    "evidenceIds": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "References to evidence supporting this claim"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "AI extraction confidence score (0-1)"
+    },
+    "verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether a human has verified this claim"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Additional metadata specific to claim type"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this claim was created"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this claim was last updated"
+    }
+  }
+}

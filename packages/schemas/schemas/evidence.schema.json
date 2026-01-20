@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://zkdpp.io/schemas/evidence.schema.json",
+  "title": "Evidence",
+  "description": "Source document or data supporting claims",
+  "type": "object",
+  "required": ["id", "type", "supplierId", "contentHash", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this evidence"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "certificate",
+        "test_report",
+        "bill_of_materials",
+        "manufacturing_record",
+        "supplier_declaration",
+        "audit_report",
+        "other"
+      ],
+      "description": "Type of evidence document"
+    },
+    "supplierId": {
+      "type": "string",
+      "description": "Supplier who provided this evidence"
+    },
+    "originalFilename": {
+      "type": "string",
+      "description": "Original filename of the uploaded document"
+    },
+    "mimeType": {
+      "type": "string",
+      "description": "MIME type of the document"
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 hash of the document content"
+    },
+    "extractedText": {
+      "type": "string",
+      "description": "OCR-extracted text from the document"
+    },
+    "issuer": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "identifier": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["certification_body", "laboratory", "supplier", "authority", "other"]
+        }
+      },
+      "description": "Entity that issued this evidence"
+    },
+    "validFrom": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this evidence becomes valid"
+    },
+    "validUntil": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this evidence expires"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Additional metadata"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this evidence was ingested"
+    }
+  }
+}

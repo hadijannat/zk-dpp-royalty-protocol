@@ -1,0 +1,58 @@
+{
+  "RECYCLED_CONTENT_GTE_V1": {
+    "name": "RECYCLED_CONTENT_GTE",
+    "version": "V1",
+    "description": "Proves recycled content percentage is greater than or equal to threshold",
+    "circuitPath": "recycled_content_gte_v1",
+    "publicInputs": ["threshold", "commitment_root", "product_binding", "requester_binding"],
+    "accessGroups": ["LEGIT_INTEREST", "AUTHORITY"],
+    "pricing": {
+      "perVerification": 0.05,
+      "currency": "EUR"
+    },
+    "claimType": "recycled_content",
+    "comparison": "gte"
+  },
+  "CARBON_FOOTPRINT_LTE_V1": {
+    "name": "CARBON_FOOTPRINT_LTE",
+    "version": "V1",
+    "description": "Proves carbon footprint is less than or equal to threshold",
+    "circuitPath": "carbon_footprint_lte_v1",
+    "publicInputs": ["threshold", "commitment_root", "product_binding", "requester_binding"],
+    "accessGroups": ["LEGIT_INTEREST", "AUTHORITY"],
+    "pricing": {
+      "perVerification": 0.05,
+      "currency": "EUR"
+    },
+    "claimType": "carbon_footprint",
+    "comparison": "lte"
+  },
+  "CERT_VALID_V1": {
+    "name": "CERT_VALID",
+    "version": "V1",
+    "description": "Proves a certification is valid (not expired) at a given timestamp",
+    "circuitPath": "cert_valid_v1",
+    "publicInputs": ["timestamp", "commitment_root", "product_binding", "requester_binding"],
+    "accessGroups": ["PUBLIC", "LEGIT_INTEREST", "AUTHORITY"],
+    "pricing": {
+      "perVerification": 0.03,
+      "currency": "EUR"
+    },
+    "claimType": "certification",
+    "comparison": "timestamp_before_expiry"
+  },
+  "SUBSTANCE_NOT_IN_LIST_V1": {
+    "name": "SUBSTANCE_NOT_IN_LIST",
+    "version": "V1",
+    "description": "Proves a product does not contain any substances from a forbidden list",
+    "circuitPath": "substance_not_in_list_v1",
+    "publicInputs": ["forbidden_list_hash", "commitment_root", "product_binding", "requester_binding"],
+    "accessGroups": ["LEGIT_INTEREST", "AUTHORITY"],
+    "pricing": {
+      "perVerification": 0.08,
+      "currency": "EUR"
+    },
+    "claimType": "substance_content",
+    "comparison": "set_non_membership"
+  }
+}

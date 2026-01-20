@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://zkdpp.io/schemas/events/verification-event.schema.json",
+  "title": "VerificationEvent",
+  "description": "Event published when a proof is verified (for NATS JetStream)",
+  "type": "object",
+  "required": ["eventId", "eventType", "timestamp", "payload"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique event identifier"
+    },
+    "eventType": {
+      "type": "string",
+      "const": "proofs.verified",
+      "description": "Event type for routing"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event occurred"
+    },
+    "payload": {
+      "type": "object",
+      "required": ["receiptId", "predicateId", "supplierId", "requesterId", "result"],
+      "properties": {
+        "receiptId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID of the verification receipt"
+        },
+        "predicateId": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" }
+          }
+        },
+        "supplierId": {
+          "type": "string",
+          "description": "Supplier who generated the proof"
+        },
+        "requesterId": {
+          "type": "string",
+          "description": "Brand/authority who requested verification"
+        },
+        "productBinding": {
+          "type": "string",
+          "description": "Product this verification applies to"
+        },
+        "result": {
+          "type": "boolean",
+          "description": "Whether verification succeeded"
+        },
+        "commitmentRoot": {
+          "type": "string",
+          "description": "Commitment root that was verified"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "gatewayId": { "type": "string" },
+        "correlationId": { "type": "string" },
+        "traceId": { "type": "string" }
+      }
+    }
+  }
+}

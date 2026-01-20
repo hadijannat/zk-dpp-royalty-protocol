@@ -1,0 +1,35 @@
+{
+  "name": "zk-dpp-royalty-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zero-Knowledge Data Royalty Protocol for Digital Product Passports",
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:packages": "pnpm -r --filter '@zkdpp/*' build",
+    "dev": "pnpm -r --parallel dev",
+    "dev:services": "./scripts/dev.sh",
+    "test": "pnpm -r test",
+    "test:integration": "cd tests/integration && pnpm test",
+    "test:e2e": "cd tests/integration && pnpm test:e2e",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean",
+    "docker:up": "docker-compose -f infra/docker/docker-compose.dev.yml up -d",
+    "docker:down": "docker-compose -f infra/docker/docker-compose.dev.yml down",
+    "docker:logs": "docker-compose -f infra/docker/docker-compose.dev.yml logs -f",
+    "rust:build": "cargo build --workspace",
+    "rust:test": "cargo test --workspace",
+    "rust:fmt": "cargo fmt --all",
+    "rust:clippy": "cargo clippy --workspace -- -D warnings",
+    "circuits:test": "cd circuits/noir && find predicates -name 'Nargo.toml' -execdir nargo test \\;",
+    "circuits:compile": "cd circuits/noir && find predicates -name 'Nargo.toml' -execdir nargo compile \\;"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.1"
+}

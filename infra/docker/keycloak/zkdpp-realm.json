@@ -1,0 +1,140 @@
+{
+  "realm": "zkdpp",
+  "enabled": true,
+  "displayName": "ZK-DPP Royalty Protocol",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 3600,
+  "refreshTokenMaxReuse": 0,
+  "roles": {
+    "realm": [
+      {
+        "name": "supplier",
+        "description": "Data supplier - can create commitments and generate proofs"
+      },
+      {
+        "name": "brand",
+        "description": "Brand/Manufacturer - can request proofs for DPP assembly"
+      },
+      {
+        "name": "auditor",
+        "description": "Third-party auditor - can view LEGIT_INTEREST data"
+      },
+      {
+        "name": "authority",
+        "description": "Regulatory authority - full data access"
+      },
+      {
+        "name": "service",
+        "description": "Internal service account"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "verify-gateway",
+      "name": "Verification Gateway",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "verify-gateway-secret-change-in-prod"
+    },
+    {
+      "clientId": "dpp-builder",
+      "name": "DPP Builder Service",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dpp-builder-secret-change-in-prod"
+    },
+    {
+      "clientId": "metering-billing",
+      "name": "Metering & Billing Service",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "metering-secret-change-in-prod"
+    },
+    {
+      "clientId": "edge-agent",
+      "name": "Edge Agent (Desktop)",
+      "enabled": true,
+      "publicClient": true,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:*",
+        "tauri://localhost"
+      ],
+      "webOrigins": [
+        "http://localhost:*",
+        "tauri://localhost"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "supplier-demo",
+      "enabled": true,
+      "email": "supplier@demo.zkdpp.io",
+      "firstName": "Demo",
+      "lastName": "Supplier",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "supplier123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["supplier"]
+    },
+    {
+      "username": "brand-demo",
+      "enabled": true,
+      "email": "brand@demo.zkdpp.io",
+      "firstName": "Demo",
+      "lastName": "Brand",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "brand123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["brand"]
+    },
+    {
+      "username": "auditor-demo",
+      "enabled": true,
+      "email": "auditor@demo.zkdpp.io",
+      "firstName": "Demo",
+      "lastName": "Auditor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "auditor123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["auditor"]
+    }
+  ]
+}

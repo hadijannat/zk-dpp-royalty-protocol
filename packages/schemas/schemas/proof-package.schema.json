@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://zkdpp.io/schemas/proof-package.schema.json",
+  "title": "ProofPackage",
+  "description": "A complete zero-knowledge proof package ready for verification",
+  "type": "object",
+  "required": ["predicateId", "proof", "publicInputs", "nonce", "generatedAt"],
+  "properties": {
+    "predicateId": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Predicate name (e.g., RECYCLED_CONTENT_GTE)"
+        },
+        "version": {
+          "type": "string",
+          "description": "Predicate version (e.g., V1)"
+        }
+      }
+    },
+    "proof": {
+      "type": "string",
+      "description": "The ZK proof bytes (hex-encoded)"
+    },
+    "publicInputs": {
+      "type": "object",
+      "required": ["commitmentRoot", "productBinding", "requesterBinding"],
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "description": "Comparison threshold for range predicates"
+        },
+        "commitmentRoot": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Merkle root of the supplier's commitment"
+        },
+        "productBinding": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Hash binding proof to specific product"
+        },
+        "requesterBinding": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Hash binding proof to specific requester"
+        },
+        "timestamp": {
+          "type": "integer",
+          "description": "Timestamp for time-based predicates (Unix seconds)"
+        },
+        "extra": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Additional predicate-specific public inputs"
+        }
+      }
+    },
+    "nonce": {
+      "type": "string",
+      "description": "Unique nonce to prevent replay attacks"
+    },
+    "generatedAt": {
+      "type": "integer",
+      "description": "Unix timestamp when proof was generated"
+    },
+    "supplierSignature": {
+      "type": "string",
+      "description": "Optional signature from supplier over the package"
+    },
+    "usageTerms": {
+      "type": "object",
+      "properties": {
+        "allowedPurposes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "retentionPolicy": { "type": "string" }
+      },
+      "description": "Terms governing use of this proof"
+    }
+  }
+}
