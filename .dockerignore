@@ -1,0 +1,77 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs (we rebuild in Docker)
+dist
+**/dist
+out
+**/out
+target
+**/target
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Testing
+coverage
+**/coverage
+.nyc_output
+
+# Development files
+*.md
+!README.md
+.env*
+.env.local
+.env.*.local
+
+# Monorepo tools
+.turbo
+.pnpm-store
+
+# Documentation
+docs
+
+# CI/CD
+.github
+
+# Apps (Edge Agent is not containerized)
+apps
+
+# Rust intermediate files (we don't need Rust in containers for now)
+crates/**/target
+Cargo.lock
+
+# Circuits (compiled elsewhere)
+circuits
+
+# Test fixtures and mocks
+**/__tests__
+**/__mocks__
+**/tests
+**/test
+
+# Infrastructure (helm charts, docker files themselves)
+infra
+
+# Contracts source (ABIs are in packages/contracts)
+contracts
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor backup files
+*~

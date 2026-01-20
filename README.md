@@ -246,6 +246,44 @@ noirup
 
 ---
 
+## Documentation
+
+### Getting Started
+- **[Quickstart Guide](docs/developer/quickstart.md)** — Get running in 5 minutes
+- **[Local Setup](docs/developer/local-setup.md)** — Full development environment
+
+### Architecture & Concepts
+- **[Architecture Overview](docs/developer/architecture.md)** — System design deep dive
+- **[Core Concepts](docs/developer/concepts.md)** — DPP, predicates, commitments explained
+- **[Testing Guide](docs/developer/testing.md)** — Running and writing tests
+
+### API Reference
+- **[OpenAPI Specification](docs/api/openapi.yaml)** — Full API spec
+- **Swagger UI** (when running locally):
+  - Verify Gateway: http://localhost:3001/docs
+  - DPP Builder: http://localhost:3002/docs
+  - Metering & Billing: http://localhost:3003/docs
+
+### Deployment
+- **[Docker Deployment](docs/deployment/docker.md)** — Docker Compose setup
+- **[Kubernetes Deployment](docs/deployment/kubernetes.md)** — Helm chart installation
+- **[Configuration Reference](docs/deployment/configuration.md)** — Environment variables
+- **[Security Best Practices](docs/deployment/security.md)** — Hardening guide
+
+### Architecture Decision Records (ADRs)
+| ADR | Title |
+|-----|-------|
+| [001](docs/adr/001-noir-for-zk-proofs.md) | Noir for Zero-Knowledge Proofs |
+| [002](docs/adr/002-fastify-as-http-framework.md) | Fastify as HTTP Framework |
+| [003](docs/adr/003-base-l2-for-settlement.md) | Base L2 for Settlement Layer |
+| [004](docs/adr/004-nats-jetstream-event-bus.md) | NATS JetStream as Event Bus |
+| [005](docs/adr/005-keycloak-identity-provider.md) | Keycloak as Identity Provider |
+| [006](docs/adr/006-tiered-access-model.md) | Tiered Access Model |
+| [007](docs/adr/007-off-chain-first-settlement.md) | Off-Chain-First Settlement |
+| [008](docs/adr/008-predicate-library-design.md) | Predicate Library Design |
+
+---
+
 ## Security notes
 
 - Local evidence stays on device by default.
