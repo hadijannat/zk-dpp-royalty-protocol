@@ -30,15 +30,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check staging kubeconfig secret
+        id: staging-preflight
+        run: |
+          if [[ -z "${{ secrets.KUBE_CONFIG_STAGING }}" ]]; then
+            echo "deploy_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping staging deploy because KUBE_CONFIG_STAGING is not configured in the staging environment."
+          else
+            echo "deploy_enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Helm
+        if: steps.staging-preflight.outputs.deploy_enabled == 'true'
         uses: azure/setup-helm@v4
 
       - name: Configure kubectl
+        if: steps.staging-preflight.outputs.deploy_enabled == 'true'
         uses: azure/k8s-set-context@v4
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
 
       - name: Determine image tag
+        if: steps.staging-preflight.outputs.deploy_enabled == 'true'
         id: tag
         env:
           INPUT_TAG: ${{ inputs.image_tag }}
@@ -50,6 +63,7 @@ jobs:
           fi
 
       - name: Deploy with Helm
+        if: steps.staging-preflight.outputs.deploy_enabled == 'true'
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
           IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}/zkdpp
@@ -65,15 +79,22 @@ jobs:
             --wait --timeout 10m
 
       - name: Verify deployment
+        if: steps.staging-preflight.outputs.deploy_enabled == 'true'
         run: |
           kubectl -n zkdpp-staging rollout status deployment/zkdpp-verify-gateway --timeout=300s
           kubectl -n zkdpp-staging rollout status deployment/zkdpp-dpp-builder --timeout=300s
           kubectl -n zkdpp-staging rollout status deployment/zkdpp-metering-billing --timeout=300s
 
       - name: Run smoke tests
+        if: steps.staging-preflight.outputs.deploy_enabled == 'true'
         run: |
           sleep 30
           echo "Staging deployment verified successfully"
+
+      - name: Staging deployment skipped
+        if: steps.staging-preflight.outputs.deploy_enabled != 'true'
+        run: |
+          echo "Staging deployment skipped because KUBE_CONFIG_STAGING is not configured."
 
   deploy-production:
     name: Deploy to Production
