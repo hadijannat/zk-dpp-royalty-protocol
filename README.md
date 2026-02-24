@@ -7,6 +7,7 @@
 [![CI](https://github.com/hadijannat/zk-dpp-royalty-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/hadijannat/zk-dpp-royalty-protocol/actions/workflows/ci.yml)
 [![Build](https://github.com/hadijannat/zk-dpp-royalty-protocol/actions/workflows/build.yml/badge.svg)](https://github.com/hadijannat/zk-dpp-royalty-protocol/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/hadijannat/zk-dpp-royalty-protocol)](https://github.com/hadijannat/zk-dpp-royalty-protocol/releases)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18763403.svg)](https://doi.org/10.5281/zenodo.18763403)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue)](LICENSE)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
